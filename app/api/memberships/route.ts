@@ -85,6 +85,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await prisma.payment.create({
+      data: {
+        membershipId: membership.id,
+        amount: price || 0,
+        paymentDate: startDate ? new Date(startDate) : new Date(),
+      },
+    });
+
     return NextResponse.json(membership, { status: 201 });
   } catch (error) {
     console.error("Error creating membership:", error);

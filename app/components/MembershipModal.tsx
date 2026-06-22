@@ -165,7 +165,7 @@ export default function MembershipModal({
               >
                 {membershipTypes.map((type) => (
                   <option key={type.id} value={type.id}>
-                    {type.name} - {type.durationDays} días - ${type.price}
+                    {type.name} - {type.durationDays} días - S/ {type.price}
                   </option>
                 ))}
               </select>
@@ -220,7 +220,7 @@ export default function MembershipModal({
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Precio ($) *
+              Precio (S/) *
             </label>
             <input
               type="number"

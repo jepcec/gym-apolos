@@ -46,3 +46,17 @@ next-env.d.ts
 /app/generated/prisma
 
 /app/generated/prisma
+
+# dev database (root)
+/dev.db
+/dev.db-journal
+
+# dev logs
+dev.log
+dev-error.log
+
+# electron build output
+/dist-electron/
+
+# embedded node binaries
+/resources/

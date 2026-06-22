@@ -10,10 +10,7 @@ import {
   ClipboardCheck,
   FileBarChart,
   Settings,
-  Sun,
-  Moon,
 } from "lucide-react";
-import { useTheme } from "../context/theme";
 
 interface SidebarLayoutProps {
   children: ReactNode;
@@ -30,18 +27,17 @@ const navItems = [
 
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const pathname = usePathname();
-  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-900">
-      <aside className="w-64 flex-shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800">
-        <div className="flex h-16 items-center border-b border-zinc-200 dark:border-zinc-700 px-6">
+      <aside className="sticky top-0 w-64 flex-shrink-0 h-screen flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800">
+        <div className="flex h-16 items-center border-b border-zinc-200 dark:border-zinc-700 px-6 flex-shrink-0">
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
             Apolos Gym
           </h1>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -65,20 +61,6 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             );
           })}
         </nav>
-
-        <div className="absolute bottom-4 left-0 w-64 p-4">
-          <button
-            onClick={toggleTheme}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-700/50 dark:hover:text-white transition-colors"
-          >
-            {theme === "light" ? (
-              <Moon className="h-5 w-5" />
-            ) : (
-              <Sun className="h-5 w-5" />
-            )}
-            {theme === "light" ? "Modo oscuro" : "Modo claro"}
-          </button>
-        </div>
       </aside>
 
       <main className="flex-1 overflow-auto">

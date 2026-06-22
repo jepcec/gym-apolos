@@ -5,6 +5,7 @@ import { Search, CheckCircle, AlertCircle, XCircle, User, CreditCard } from "luc
 import SidebarLayout from "../components/SidebarLayout";
 import MembershipModal from "../components/MembershipModal";
 import { apiFetch } from "../lib/api";
+import { getMembershipStatus } from "../lib/membershipStatus";
 
 interface Client {
   id: number;
@@ -38,35 +39,6 @@ interface Toast {
   message: string;
 }
 
-function getMembershipStatus(endDate: string): {
-  label: string;
-  className: string;
-  borderClass: string;
-} {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) {
-    return {
-      label: "Vencida",
-      className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      borderClass: "border-red-500",
-    };
-  } else if (diff <= 7) {
-    return {
-      label: "Por vencer",
-      className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-      borderClass: "border-amber-500",
-    };
-  }
-  return {
-    label: "Activa",
-    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-    borderClass: "border-green-500",
-  };
-}
-
 export default function CheckinPage() {
   const [searchCode, setSearchCode] = useState("");
   const [client, setClient] = useState<Client | null>(null);
@@ -81,6 +53,7 @@ export default function CheckinPage() {
   } | null>(null);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [warningDays, setWarningDays] = useState(7);
 
   useEffect(() => {
     loadMembershipTypes();
@@ -88,8 +61,12 @@ export default function CheckinPage() {
 
   async function loadMembershipTypes() {
     try {
-      const data = await apiFetch<MembershipType[]>("/membership-types");
-      setMembershipTypes(data);
+      const [typesData, settingsData] = await Promise.all([
+        apiFetch<MembershipType[]>("/membership-types"),
+        apiFetch<Record<string, string>>("/settings"),
+      ]);
+      setMembershipTypes(typesData);
+      setWarningDays(parseInt(settingsData.warning_days || "7", 10));
     } catch (error) {
       console.error("Error loading membership types:", error);
     }
@@ -207,7 +184,7 @@ export default function CheckinPage() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Buscar por código de cliente (ej: GYM-001)..."
+                  placeholder="Buscar por código de cliente (ej: APG0001)..."
                   value={searchCode}
                   onChange={(e) => setSearchCode(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -237,7 +214,7 @@ export default function CheckinPage() {
             <div
               className={`rounded-xl border-2 bg-white dark:bg-zinc-800 p-6 ${
                 activeMembership
-                  ? getMembershipStatus(activeMembership.endDate).borderClass
+                  ? getMembershipStatus(activeMembership.endDate, warningDays).borderClass
                   : "border-zinc-200 dark:border-zinc-700"
               }`}
             >
@@ -275,9 +252,9 @@ export default function CheckinPage() {
                       Membresía:
                     </span>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate).className}`}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate, warningDays).className}`}
                     >
-                      {getMembershipStatus(activeMembership.endDate).label}
+                      {getMembershipStatus(activeMembership.endDate, warningDays).label}
                     </span>
                   </div>
                   <p className="text-zinc-900 dark:text-white">

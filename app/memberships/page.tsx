@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, CreditCard } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import SidebarLayout from "../components/SidebarLayout";
 import MembershipTypeModal from "../components/MembershipTypeModal";
-import MembershipModal from "../components/MembershipModal";
 import { apiFetch } from "../lib/api";
+import { getMembershipStatus } from "../lib/membershipStatus";
 
 interface MembershipType {
   id: number;
@@ -33,36 +33,12 @@ interface Membership {
   type: MembershipType | null;
 }
 
-function getMembershipStatus(endDate: string): {
-  label: string;
-  className: string;
-} {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) {
-    return { label: "Vencida", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-  } else if (diff <= 7) {
-    return { label: "Por vencer", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
-  }
-  return { label: "Activa", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
-}
-
 export default function MembershipsPage() {
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
-  const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<{ id: number; name: string } | null>(null);
-  const [newMembership, setNewMembership] = useState({
-    clientId: "",
-    typeId: "",
-    startDate: new Date().toISOString().split("T")[0],
-    price: 0,
-  });
+  const [warningDays, setWarningDays] = useState(7);
 
   useEffect(() => {
     loadData();
@@ -70,14 +46,14 @@ export default function MembershipsPage() {
 
   async function loadData() {
     try {
-      const [typesRes, membershipsRes, clientsRes] = await Promise.all([
+      const [typesRes, membershipsRes, settingsRes] = await Promise.all([
         apiFetch<MembershipType[]>("/membership-types"),
         apiFetch<Membership[]>("/memberships"),
-        apiFetch<Client[]>("/clients"),
+        apiFetch<Record<string, string>>("/settings"),
       ]);
       setMembershipTypes(typesRes);
       setMemberships(membershipsRes);
-      setClients(clientsRes);
+      setWarningDays(parseInt(settingsRes.warning_days || "7", 10));
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -115,86 +91,6 @@ export default function MembershipsPage() {
       alert("Error al eliminar tipo de membresía");
     }
   }
-
-  async function handleSaveMembership(data: {
-    clientId: number;
-    typeId?: number;
-    startDate: string;
-    durationDays?: number;
-    price: number;
-  }) {
-    try {
-      await apiFetch("/memberships", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      setShowMembershipModal(false);
-      setSelectedClient(null);
-      setNewMembership({
-        clientId: "",
-        typeId: "",
-        startDate: new Date().toISOString().split("T")[0],
-        price: 0,
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error saving membership:", error);
-      alert("Error al guardar membresía");
-    }
-  }
-
-  const handleClientChange = (clientId: string) => {
-    setNewMembership((prev) => ({
-      ...prev,
-      clientId,
-      typeId: "",
-      price: 0,
-    }));
-  };
-
-  const handleTypeChange = (typeId: string) => {
-    const type = membershipTypes.find((t) => t.id === parseInt(typeId));
-    setNewMembership((prev) => ({
-      ...prev,
-      typeId,
-      price: type?.price || 0,
-    }));
-  };
-
-  const handleInlineSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMembership.clientId || !newMembership.typeId) {
-      alert("Selecciona un cliente y un plan");
-      return;
-    }
-
-    const type = membershipTypes.find((t) => t.id === parseInt(newMembership.typeId));
-    const startDate = new Date(newMembership.startDate);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + (type?.durationDays || 0));
-
-    try {
-      await apiFetch("/memberships", {
-        method: "POST",
-        body: JSON.stringify({
-          clientId: parseInt(newMembership.clientId),
-          typeId: parseInt(newMembership.typeId),
-          startDate: newMembership.startDate,
-          price: newMembership.price,
-        }),
-      });
-      setNewMembership({
-        clientId: "",
-        typeId: "",
-        startDate: new Date().toISOString().split("T")[0],
-        price: 0,
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error creating membership:", error);
-      alert("Error al crear membresía");
-    }
-  };
 
   return (
     <SidebarLayout>
@@ -241,7 +137,7 @@ export default function MembershipsPage() {
                       </p>
                     </div>
                     <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                      ${type.price}
+                      S/ {type.price}
                     </span>
                   </div>
                   {type.description && (
@@ -269,96 +165,6 @@ export default function MembershipsPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-          <div className="border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-            <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-              Registrar Membresía
-            </h2>
-          </div>
-
-          <div className="p-6">
-            <form onSubmit={handleInlineSubmit} className="flex flex-wrap items-end gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Cliente
-                </label>
-                <select
-                  value={newMembership.clientId}
-                  onChange={(e) => handleClientChange(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Seleccionar cliente</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.code} - {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Plan
-                </label>
-                <select
-                  value={newMembership.typeId}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  required
-                  disabled={!newMembership.clientId}
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  <option value="">Seleccionar plan</option>
-                  {membershipTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name} - ${type.price}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="w-[180px]">
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Fecha inicio
-                </label>
-                <input
-                  type="date"
-                  value={newMembership.startDate}
-                  onChange={(e) =>
-                    setNewMembership((prev) => ({ ...prev, startDate: e.target.value }))
-                  }
-                  required
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="w-[120px]">
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Precio
-                </label>
-                <input
-                  type="number"
-                  value={newMembership.price}
-                  onChange={(e) =>
-                    setNewMembership((prev) => ({ ...prev, price: parseFloat(e.target.value) || 0 }))
-                  }
-                  required
-                  step="0.01"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <CreditCard className="h-4 w-4" />
-                Registrar
-              </button>
-            </form>
           </div>
         </div>
 
@@ -413,13 +219,13 @@ export default function MembershipsPage() {
                     </td>
                     <td className="px-6 py-3">
                       <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(membership.endDate).className}`}
+                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(membership.endDate, warningDays).className}`}
                       >
-                        {getMembershipStatus(membership.endDate).label}
+                        {getMembershipStatus(membership.endDate, warningDays).label}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-zinc-900 dark:text-white">
-                      ${membership.price.toFixed(2)}
+                      S/ {membership.price.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -447,20 +253,6 @@ export default function MembershipsPage() {
             setEditingTypeId(null);
           }}
           onSave={handleSaveType}
-        />
-      )}
-
-      {showMembershipModal && selectedClient && (
-        <MembershipModal
-          mode="assign"
-          clientId={selectedClient.id}
-          clientName={selectedClient.name}
-          membershipTypes={membershipTypes}
-          onClose={() => {
-            setShowMembershipModal(false);
-            setSelectedClient(null);
-          }}
-          onSave={handleSaveMembership}
         />
       )}
     </SidebarLayout>

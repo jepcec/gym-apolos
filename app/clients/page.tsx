@@ -15,6 +15,7 @@ import SidebarLayout from "../components/SidebarLayout";
 import ClientDetailModal from "../components/ClientDetailModal";
 import MembershipModal from "../components/MembershipModal";
 import { apiFetch } from "../lib/api";
+import { getMembershipStatus } from "../lib/membershipStatus";
 
 interface Client {
   id: number;
@@ -46,22 +47,6 @@ interface MembershipType {
   price: number;
 }
 
-function getMembershipStatus(endDate: string): {
-  label: string;
-  className: string;
-} {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) {
-    return { label: "Vencida", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-  } else if (diff <= 7) {
-    return { label: "Por vencer", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
-  }
-  return { label: "Activa", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
-}
-
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,6 +58,7 @@ export default function ClientsPage() {
     membership?: Client["memberships"][0];
   } | null>(null);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
+  const [warningDays, setWarningDays] = useState(7);
 
   useEffect(() => {
     loadClients();
@@ -81,8 +67,12 @@ export default function ClientsPage() {
 
   async function loadClients() {
     try {
-      const data = await apiFetch<Client[]>("/clients");
-      setClients(data);
+      const [clientsData, settingsData] = await Promise.all([
+        apiFetch<Client[]>("/clients"),
+        apiFetch<Record<string, string>>("/settings"),
+      ]);
+      setClients(clientsData);
+      setWarningDays(parseInt(settingsData.warning_days || "7", 10));
     } catch (error) {
       console.error("Error loading clients:", error);
     }
@@ -227,9 +217,9 @@ export default function ClientsPage() {
                       <td className="px-4 py-3">
                         {currentMembership ? (
                           <span
-                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(currentMembership.endDate).className}`}
+                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(currentMembership.endDate, warningDays).className}`}
                           >
-                            {getMembershipStatus(currentMembership.endDate).label}
+                            {getMembershipStatus(currentMembership.endDate, warningDays).label}
                           </span>
                         ) : (
                           <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400">
@@ -264,7 +254,7 @@ export default function ClientsPage() {
                             >
                               <CreditCard className="h-4 w-4" />
                             </button>
-                          ) : getMembershipStatus(currentMembership.endDate).label === "Vencida" || getMembershipStatus(currentMembership.endDate).label === "Por vencer" ? (
+                          ) : getMembershipStatus(currentMembership.endDate, warningDays).label === "Vencida" || getMembershipStatus(currentMembership.endDate, warningDays).label === "Por vencer" ? (
                             <button
                               onClick={() =>
                                 setMembershipModal({
@@ -321,6 +311,7 @@ export default function ClientsPage() {
         <ClientDetailModal
           client={selectedClient}
           membershipTypes={membershipTypes}
+          warningDays={warningDays}
           onClose={() => setSelectedClient(null)}
           onDelete={handleDeleteClient}
           onAssignMembership={(clientId) => {

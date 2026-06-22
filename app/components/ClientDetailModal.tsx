@@ -15,6 +15,7 @@ import {
   Trash2,
   RefreshCw,
 } from "lucide-react";
+import { getMembershipStatus } from "../lib/membershipStatus";
 
 interface Client {
   id: number;
@@ -49,6 +50,7 @@ interface MembershipType {
 interface ClientDetailModalProps {
   client: Client;
   membershipTypes: MembershipType[];
+  warningDays: number;
   onClose: () => void;
   onDelete: (id: number) => void;
   onAssignMembership: (clientId: number) => void;
@@ -56,25 +58,10 @@ interface ClientDetailModalProps {
   onRefresh: () => void;
 }
 
-function getMembershipStatus(endDate: string): {
-  label: string;
-  className: string;
-} {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) {
-    return { label: "Vencida", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-  } else if (diff <= 7) {
-    return { label: "Por vencer", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
-  }
-  return { label: "Activa", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
-}
-
 export default function ClientDetailModal({
   client,
   membershipTypes,
+  warningDays,
   onClose,
   onDelete,
   onAssignMembership,
@@ -201,15 +188,15 @@ export default function ClientDetailModal({
                     </span>
                   </div>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate).className}`}
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate, warningDays).className}`}
                   >
-                    {getMembershipStatus(activeMembership.endDate).label}
+                    {getMembershipStatus(activeMembership.endDate, warningDays).label}
                   </span>
                 </div>
                 <div className="text-sm text-zinc-500 dark:text-zinc-400 space-y-1">
                   <p>Inicio: {new Date(activeMembership.startDate).toLocaleDateString()}</p>
                   <p>Vence: {new Date(activeMembership.endDate).toLocaleDateString()}</p>
-                  <p>Precio: ${activeMembership.price.toFixed(2)}</p>
+                  <p>Precio: S/ {activeMembership.price.toFixed(2)}</p>
                 </div>
               </div>
             ) : (
@@ -238,7 +225,7 @@ export default function ClientDetailModal({
             {displayedMemberships.length > 0 ? (
               <div className="space-y-2">
                 {displayedMemberships.map((membership) => {
-                  const status = getMembershipStatus(membership.endDate);
+                  const status = getMembershipStatus(membership.endDate, warningDays);
                   return (
                     <div
                       key={membership.id}

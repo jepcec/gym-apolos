@@ -15,6 +15,7 @@ import SidebarLayout from "./components/SidebarLayout";
 import ClientDetailModal from "./components/ClientDetailModal";
 import MembershipModal from "./components/MembershipModal";
 import { apiFetch } from "./lib/api";
+import { getMembershipStatus } from "./lib/membershipStatus";
 
 interface DashboardStats {
   activeClients: number;
@@ -61,22 +62,13 @@ type MembersByStatus = {
   no_membership: Client[];
 };
 
-type TabType = "expiring_soon" | "expired" | "active" | "no_membership";
+type TabType = "expiring_soon" | "expired" | "active" | "no_membership" | "ingresos";
 
-function getMembershipStatus(endDate: string): {
-  label: string;
-  className: string;
-} {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) {
-    return { label: "Vencida", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-  } else if (diff <= 7) {
-    return { label: "Por vencer", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
-  }
-  return { label: "Activa", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
+interface MonthlyIncome {
+  month: string;
+  year: number;
+  total: number;
+  count: number;
 }
 
 export default function Dashboard() {
@@ -91,6 +83,8 @@ export default function Dashboard() {
     clientName?: string;
   } | null>(null);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
+  const [warningDays, setWarningDays] = useState(7);
+  const [monthlyIncomeData, setMonthlyIncomeData] = useState<MonthlyIncome[]>([]);
 
   useEffect(() => {
     loadData();
@@ -98,14 +92,18 @@ export default function Dashboard() {
 
   async function loadData() {
     try {
-      const [statsRes, membersRes, typesRes] = await Promise.all([
+      const [statsRes, membersRes, typesRes, settingsRes, incomeRes] = await Promise.all([
         apiFetch<DashboardStats>("/dashboard"),
         apiFetch<MembersByStatus>("/dashboard/members-by-status"),
         apiFetch<MembershipType[]>("/membership-types"),
+        apiFetch<Record<string, string>>("/settings"),
+        apiFetch<MonthlyIncome[]>("/dashboard/monthly-income"),
       ]);
       setStats(statsRes);
       setMembersByStatus(membersRes);
       setMembershipTypes(typesRes);
+      setWarningDays(parseInt(settingsRes.warning_days || "7", 10));
+      setMonthlyIncomeData(incomeRes);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
@@ -144,7 +142,7 @@ export default function Dashboard() {
     }
   }
 
-  const currentClients = membersByStatus?.[activeTab] || [];
+  const currentClients = activeTab !== "ingresos" ? (membersByStatus?.[activeTab] || []) : [];
   const filteredClients = currentClients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -152,11 +150,15 @@ export default function Dashboard() {
       (client.dni && client.dni.includes(searchQuery))
   );
 
+  const totalIncome = monthlyIncomeData.reduce((sum, m) => sum + m.total, 0);
+  const totalPayments = monthlyIncomeData.reduce((sum, m) => sum + m.count, 0);
+
   const tabs: { key: TabType; label: string; count: number }[] = [
     { key: "expiring_soon", label: "Por vencer", count: membersByStatus?.expiring_soon.length || 0 },
     { key: "expired", label: "Vencidas", count: membersByStatus?.expired.length || 0 },
     { key: "active", label: "Activas", count: membersByStatus?.active.length || 0 },
     { key: "no_membership", label: "Sin membresía", count: membersByStatus?.no_membership.length || 0 },
+    { key: "ingresos", label: "Ingresos", count: totalPayments },
   ];
 
   return (
@@ -234,7 +236,7 @@ export default function Dashboard() {
                   Ingresos del Mes
                 </p>
                 <p className="text-2xl font-semibold text-zinc-900 dark:text-white">
-                  ${stats?.monthlyIncome?.toFixed(2) ?? "-"}
+                  S/ {stats?.monthlyIncome?.toFixed(2) ?? "-"}
                 </p>
               </div>
             </div>
@@ -277,99 +279,162 @@ export default function Dashboard() {
           </div>
 
           <div className="p-4">
-            <input
-              type="text"
-              placeholder="Buscar por nombre, código o DNI..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="mb-4 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-700 text-left">
-                    <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      Código
-                    </th>
-                    <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      Nombre
-                    </th>
-                    <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      Teléfono
-                    </th>
-                    <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      Tipo
-                    </th>
-                    <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      Vencimiento
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredClients.map((client) => {
-                    const activeMembership = client.memberships[0];
-                    return (
+            {activeTab === "ingresos" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 dark:border-zinc-700 text-left">
+                      <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                        Mes
+                      </th>
+                      <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                        Pagos
+                      </th>
+                      <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyIncomeData.map((item) => (
                       <tr
-                        key={client.id}
+                        key={`${item.year}-${item.month}`}
                         className="border-b border-zinc-100 dark:border-zinc-700/50"
                       >
                         <td className="py-3 text-zinc-900 dark:text-white">
-                          <div className="flex items-center gap-2">
-                            {client.code}
-                            <Copy
-                              className="h-3 w-3 text-zinc-400 hover:text-zinc-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(client.code);
-                              }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 text-zinc-900 dark:text-white">
-                          {client.name}
+                          {item.month} {item.year}
                         </td>
                         <td className="py-3 text-zinc-500 dark:text-zinc-400">
-                          {client.phone || "-"}
+                          {item.count}
                         </td>
-                        <td className="py-3">
-                          {activeMembership ? (
-                            <span className="text-zinc-900 dark:text-white">
-                              {activeMembership.type?.name || "Custom"}
-                            </span>
-                          ) : (
-                            <span className="text-zinc-400">-</span>
-                          )}
-                        </td>
-                        <td className="py-3">
-                          {activeMembership ? (
-                            <span
-                              className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate).className}`}
-                            >
-                              {new Date(
-                                activeMembership.endDate
-                              ).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-zinc-400">-</span>
-                          )}
+                        <td className="py-3 text-zinc-900 dark:text-white">
+                          S/ {item.total.toFixed(2)}
                         </td>
                       </tr>
-                    );
-                  })}
-                  {filteredClients.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-8 text-center text-zinc-500 dark:text-zinc-400"
-                      >
-                        No hay clientes en esta categoría
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                    {monthlyIncomeData.length > 0 && (
+                      <tr className="border-t-2 border-zinc-300 dark:border-zinc-600 font-semibold">
+                        <td className="py-3 text-zinc-900 dark:text-white">
+                          Total
+                        </td>
+                        <td className="py-3 text-zinc-500 dark:text-zinc-400">
+                          {totalPayments}
+                        </td>
+                        <td className="py-3 text-zinc-900 dark:text-white">
+                          S/ {totalIncome.toFixed(2)}
+                        </td>
+                      </tr>
+                    )}
+                    {monthlyIncomeData.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="py-8 text-center text-zinc-500 dark:text-zinc-400"
+                        >
+                          No hay ingresos registrados
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, código o DNI..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="mb-4 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-200 dark:border-zinc-700 text-left">
+                        <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                          Código
+                        </th>
+                        <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                          Nombre
+                        </th>
+                        <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                          Teléfono
+                        </th>
+                        <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                          Tipo
+                        </th>
+                        <th className="pb-3 font-medium text-zinc-500 dark:text-zinc-400">
+                          Vencimiento
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredClients.map((client) => {
+                        const activeMembership = client.memberships[0];
+                        return (
+                          <tr
+                            key={client.id}
+                            className="border-b border-zinc-100 dark:border-zinc-700/50"
+                          >
+                            <td className="py-3 text-zinc-900 dark:text-white">
+                              <div className="flex items-center gap-2">
+                                {client.code}
+                                <Copy
+                                  className="h-3 w-3 text-zinc-400 hover:text-zinc-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(client.code);
+                                  }}
+                                />
+                              </div>
+                            </td>
+                            <td className="py-3 text-zinc-900 dark:text-white">
+                              {client.name}
+                            </td>
+                            <td className="py-3 text-zinc-500 dark:text-zinc-400">
+                              {client.phone || "-"}
+                            </td>
+                            <td className="py-3">
+                              {activeMembership ? (
+                                <span className="text-zinc-900 dark:text-white">
+                                  {activeMembership.type?.name || "Custom"}
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3">
+                              {activeMembership ? (
+                                <span
+                                  className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(activeMembership.endDate, warningDays).className}`}
+                                >
+                                  {new Date(
+                                    activeMembership.endDate
+                                  ).toLocaleDateString()}
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredClients.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="py-8 text-center text-zinc-500 dark:text-zinc-400"
+                          >
+                            No hay clientes en esta categoría
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -378,6 +443,7 @@ export default function Dashboard() {
         <ClientDetailModal
           client={selectedClient}
           membershipTypes={membershipTypes}
+          warningDays={warningDays}
           onClose={() => setSelectedClient(null)}
           onDelete={handleDeleteClient}
           onAssignMembership={(clientId) => {

@@ -101,7 +101,7 @@ export default function MembershipTypeModal({
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Precio ($) *
+              Precio (S/) *
             </label>
             <input
               type="number"

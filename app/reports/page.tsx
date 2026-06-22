@@ -3,8 +3,6 @@
 import { Download, Users, CreditCard, ClipboardCheck, DollarSign } from "lucide-react";
 import SidebarLayout from "../components/SidebarLayout";
 
-const BACKEND_PORT = process.env.NEXT_PUBLIC_BACKEND_PORT || "3000";
-
 export default function ReportsPage() {
   const reports = [
     {
@@ -38,7 +36,7 @@ export default function ReportsPage() {
   ];
 
   const handleDownload = (type: string) => {
-    window.open(`http://127.0.0.1:${BACKEND_PORT}/api/reports/${type}`, "_blank");
+    window.open(`/api/reports/${type}`, "_blank");
   };
 
   const colorClasses: Record<string, { bg: string; icon: string }> = {

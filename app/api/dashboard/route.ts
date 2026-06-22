@@ -4,6 +4,8 @@ import prisma from "../../lib/prisma";
 export async function GET() {
   try {
     const now = new Date();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
@@ -19,19 +21,23 @@ export async function GET() {
 
     const warningDate = new Date();
     warningDate.setDate(warningDate.getDate() + warningDays);
+    warningDate.setHours(23, 59, 59, 999);
 
-    const expiringMemberships = await prisma.membership.count({
+    const expiringMemberships = await prisma.client.count({
       where: {
         status: "active",
-        endDate: {
-          gte: new Date(),
-          lte: warningDate,
+        memberships: {
+          some: {
+            status: "active",
+            endDate: {
+              gte: startOfToday,
+              lte: warningDate,
+            },
+          },
         },
       },
     });
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 

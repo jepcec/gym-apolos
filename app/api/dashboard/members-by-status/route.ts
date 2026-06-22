@@ -10,8 +10,10 @@ export async function GET() {
     );
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const warningDate = new Date();
     warningDate.setDate(warningDate.getDate() + warningDays);
+    warningDate.setHours(23, 59, 59, 999);
 
     const clients = await prisma.client.findMany({
       where: { status: "active" },
