@@ -1,0 +1,62 @@
+name: Build Electron App
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Prepare Electron Build
+        run: node scripts/prepare-electron.js
+
+      - name: Build Electron App
+        run: npx electron-builder build --win --publish never
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-app
+          path: dist-electron/**/*.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-app
+          path: dist-electron
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist-electron/**/*.exe
+          generate_release_notes: true
