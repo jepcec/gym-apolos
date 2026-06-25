@@ -50,6 +50,8 @@ next-env.d.ts
 # dev database (root)
 /dev.db
 /dev.db-journal
+/dev-clean.db
+/dev-clean.db-journal
 
 # dev logs
 dev.log

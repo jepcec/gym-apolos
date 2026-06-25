@@ -1,8 +1,9 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
+const backupManager = require("./backup-manager");
 
 let mainWindow;
 let nextServer;
@@ -203,6 +204,7 @@ function getSplashHTML() {
 
 function createWindow() {
   const iconPath = path.join(__dirname, "icon.ico");
+  const preloadPath = path.join(__dirname, "preload.js");
   const windowOptions = {
     width: 1280,
     height: 800,
@@ -213,6 +215,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: preloadPath,
     },
     show: true,
   };
@@ -272,12 +275,119 @@ async function loadApp() {
   }
 }
 
+async function loadSettingsForBackup() {
+  try {
+    const prismaModule = path.join(
+      app.isPackaged ? process.resourcesPath : path.join(__dirname, ".."),
+      "app", "generated", "prisma", "index.js"
+    );
+    
+    if (fs.existsSync(prismaModule)) {
+      const { PrismaClient } = require(prismaModule);
+      const prisma = new PrismaClient({
+        datasources: { db: { url: `file:${getDatabasePath()}` } },
+      });
+      const settings = await prisma.setting.findMany();
+      await prisma.$disconnect();
+      const result = {};
+      settings.forEach(s => { result[s.key] = s.value; });
+      return result;
+    }
+  } catch (error) {
+    console.error("Error loading settings for backup:", error);
+  }
+  return {};
+}
+
+ipcMain.handle("backup:create", () => {
+  try {
+    return { success: true, backup: backupManager.createBackup() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:list", () => {
+  try {
+    return { success: true, backups: backupManager.listBackups() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:delete", (event, id) => {
+  try {
+    backupManager.deleteBackup(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:restore", async (event, id) => {
+  try {
+    await backupManager.restoreBackup(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:export", async (event, id) => {
+  try {
+    return await backupManager.exportBackup(id);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:import", async () => {
+  try {
+    return await backupManager.importBackup();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:cleanup", (event, count) => {
+  try {
+    return { success: true, result: backupManager.cleanupOldBackups(count) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:scheduleAuto", (event, frequency, retention) => {
+  try {
+    backupManager.scheduleAutoBackup(frequency, retention);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("backup:stopAuto", () => {
+  try {
+    backupManager.stopAutoBackup();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 app.whenReady().then(async () => {
   createWindow();
   
   try {
     await startNextServer();
     await loadApp();
+    
+    const settings = await loadSettingsForBackup();
+    if (settings.backup_auto_enabled === "true") {
+      const frequency = settings.backup_frequency || "daily";
+      const retention = parseInt(settings.backup_retention_count || "10", 10);
+      backupManager.scheduleAutoBackup(frequency, retention);
+    }
   } catch (err) {
     console.error("Failed to start application:", err);
     if (mainWindow && !mainWindow.isDestroyed()) {

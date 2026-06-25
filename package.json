@@ -26,8 +26,7 @@
       "output": "dist-electron"
     },
     "files": [
-      "electron/**/*",
-      "!electron/icon.ico"
+      "electron/**/*"
     ],
     "extraResources": [
       {
@@ -48,7 +47,7 @@
         "to": "app/public"
       },
       {
-        "from": "dev.db",
+        "from": "dev-clean.db",
         "to": "database/dev.db"
       },
       {
