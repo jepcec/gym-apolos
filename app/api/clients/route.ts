@@ -8,17 +8,18 @@ async function generateClientCode(): Promise<string> {
   });
 
   if (clients.length === 0) {
-    return "APG0001";
+    return "0001";
   }
 
   const maxCode = clients
     .map((c) => {
-      const match = c.code.match(/^APG(\d+)$/);
+      const codeStr = String(c.code);
+      const match = codeStr.match(/^(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     })
     .reduce((max, num) => Math.max(max, num), 0);
 
-  return `APG${String(maxCode + 1).padStart(4, "0")}`;
+  return `${String(maxCode + 1).padStart(4, "0")}`;
 }
 
 export async function GET() {

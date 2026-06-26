@@ -52,7 +52,7 @@ export default function MembershipModal({
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState<number | "">(0);
 
   useEffect(() => {
     if (mode === "renew" && membership) {
@@ -106,7 +106,7 @@ export default function MembershipModal({
     } = {
       clientId,
       startDate,
-      price,
+      price: price === "" ? 0 : price,
     };
 
     if (useCustomDuration) {
@@ -223,12 +223,20 @@ export default function MembershipModal({
               Precio (S/) *
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={price}
-              onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setPrice("");
+                } else {
+                  const num = parseFloat(val);
+                  setPrice(isNaN(num) ? "" : num);
+                }
+              }}
               required
-              min="0"
-              step="0.01"
+              pattern="^\d*\.?\d{0,2}$"
               className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>

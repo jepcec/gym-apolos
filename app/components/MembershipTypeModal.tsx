@@ -24,7 +24,7 @@ export default function MembershipTypeModal({
 }: MembershipTypeModalProps) {
   const [name, setName] = useState("");
   const [durationDays, setDurationDays] = useState(30);
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState<number | "">(0);
   const [description, setDescription] = useState("");
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function MembershipTypeModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSave({ name: name.trim(), durationDays, price, description });
+    onSave({ name: name.trim(), durationDays, price: price === "" ? 0 : price, description });
   };
 
   return (
@@ -104,12 +104,20 @@ export default function MembershipTypeModal({
               Precio (S/) *
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={price}
-              onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setPrice("");
+                } else {
+                  const num = parseFloat(val);
+                  setPrice(isNaN(num) ? "" : num);
+                }
+              }}
               required
-              min="0"
-              step="0.01"
+              pattern="^\d*\.?\d{0,2}$"
               className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>

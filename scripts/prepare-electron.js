@@ -21,11 +21,6 @@ checkFile(
 );
 
 checkFile(
-  path.join(rootDir, "dev.db"),
-  "Database file"
-);
-
-checkFile(
   path.join(rootDir, ".next", "static"),
   "Next.js static files"
 );
