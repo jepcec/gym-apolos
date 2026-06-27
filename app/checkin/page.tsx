@@ -184,7 +184,7 @@ export default function CheckinPage() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Buscar por código de cliente (ej: APG0001)..."
+                  placeholder="Buscar por código de cliente"
                   value={searchCode}
                   onChange={(e) => setSearchCode(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
