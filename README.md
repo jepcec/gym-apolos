@@ -1,36 +1,185 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏋️ Apolos Gym Control
 
-## Getting Started
+Aplicación de escritorio para la gestión integral de gimnasios, desarrollada con **Electron + Next.js** y distribuida como un ejecutable para Windows. Permite administrar clientes, membresías, pagos y asistencias desde una interfaz moderna, con almacenamiento local mediante SQLite.
 
-First, run the development server:
+## ✨ Características
+
+- 👤 Gestión de clientes (CRUD)
+- 🏷️ Código de cliente autogenerado
+- 💳 Administración de membresías
+- 📅 Control de fechas de vigencia y estados
+- ✅ Registro diario de check-ins
+- 💰 Gestión de pagos
+- 📊 Dashboard con métricas en tiempo real
+- 📄 Exportación de reportes en CSV
+- 💾 Backups automáticos y manuales
+- 🌙 Tema claro/oscuro
+- 🖥️ Instalador para Windows (.exe)
+
+---
+
+## 🛠️ Tecnologías
+
+| Capa | Tecnologías |
+|------|-------------|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4 |
+| Backend | Next.js API Routes, Prisma ORM |
+| Base de datos | SQLite + LibSQL |
+| Escritorio | Electron, Electron Builder |
+| Iconos | Lucide React |
+
+---
+
+## 🏛️ Arquitectura
+
+La aplicación sigue una arquitectura **full-stack integrada**.
+
+- **Electron** ejecuta la aplicación de escritorio.
+- **Next.js** funciona como servidor local embebido.
+- **Prisma ORM** administra el acceso a la base de datos SQLite.
+- La comunicación con el sistema operativo se realiza mediante **IPC seguro** utilizando `contextIsolation`.
+
+```
+Electron
+    │
+    ▼
+Next.js (Servidor Local)
+    │
+API Routes
+    │
+Prisma ORM
+    │
+SQLite
+```
+
+---
+
+## 📦 Funcionalidades
+
+### Clientes
+
+- Registro y edición
+- Eliminación
+- Búsqueda
+- Filtros
+- Código autogenerado
+
+### Membresías
+
+- Mensual
+- Trimestral
+- Semestral
+- Anual
+
+Estados automáticos:
+
+- Activa
+- Por vencer
+- Vencida
+
+### Check-ins
+
+- Registro diario
+- Prevención de duplicados
+
+### Pagos
+
+- Historial
+- Asociación con membresías
+
+### Dashboard
+
+- Clientes activos
+- Membresías por vencer
+- Check-ins del día
+- Ingresos mensuales
+
+### Reportes
+
+Exportación a CSV de:
+
+- Clientes
+- Membresías
+- Pagos
+- Check-ins
+
+### Backups
+
+- Respaldo manual
+- Respaldo automático
+- Restauración de información
+
+---
+
+## 🚀 Instalación
+
+Clonar el repositorio
+
+```bash
+git clone https://github.com/usuario/apolos-gym-control.git
+cd apolos-gym-control
+```
+
+Instalar dependencias
+
+```bash
+npm install
+```
+
+Generar la base de datos
+
+```bash
+npx prisma generate
+npx prisma migrate dev
+```
+
+Ejecutar en desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📦 Compilar para Windows
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+El proceso realiza:
 
-To learn more about Next.js, take a look at the following resources:
+1. Build de Next.js
+2. Generación del servidor standalone
+3. Preparación de Electron
+4. Empaquetado con Electron Builder
+5. Generación del instalador `.exe`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📁 Estructura del proyecto
 
-## Deploy on Vercel
+```
+app/
+components/
+electron/
+lib/
+prisma/
+public/
+scripts/
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🎯 Objetivos del proyecto
+
+- Centralizar la gestión administrativa de gimnasios.
+- Facilitar el control de membresías y pagos.
+- Ofrecer una solución de escritorio rápida y sencilla.
+- Funcionar completamente de forma local sin depender de servidores externos.
+
+---
+
+## 📄 Licencia
+
+Este proyecto fue desarrollado con fines educativos y de portafolio.
