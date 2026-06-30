@@ -182,4 +182,4 @@ scripts/
 
 ## 📄 Licencia
 
-Este proyecto fue desarrollado con fines educativos y de portafolio.
+Este proyecto está bajo la licencia MIT. Consulta el archivo `LICENSE` para más información.
