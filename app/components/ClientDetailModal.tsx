@@ -79,12 +79,13 @@ export default function ClientDetailModal({
   const [editing, setEditing] = useState(false);
 
   const activeMembership = client.memberships.find((m) => m.status === "active");
+  const checkins = client.checkins ?? [];
   const displayedMemberships = showMoreMemberships
     ? client.memberships
     : client.memberships.slice(0, 5);
   const displayedCheckins = showMoreCheckins
-    ? client.checkins
-    : client.checkins.slice(0, 10);
+    ? checkins
+    : checkins.slice(0, 10);
 
   const groupedCheckins = displayedCheckins.reduce(
     (acc, checkin) => {

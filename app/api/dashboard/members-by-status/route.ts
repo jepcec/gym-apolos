@@ -22,6 +22,10 @@ export async function GET() {
           include: { type: true },
           orderBy: { endDate: "desc" },
         },
+        checkins: {
+          orderBy: { checkinDate: "desc" },
+          take: 30,
+        },
       },
     });
 

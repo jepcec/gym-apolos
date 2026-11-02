@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:test": "tsx prisma/seed-test.ts",
     "db:push": "prisma db push",
     "electron:dev": "npm run build && electron .",
     "electron:build": "npm run build && node scripts/prepare-electron.js && electron-builder build --win --publish never",
