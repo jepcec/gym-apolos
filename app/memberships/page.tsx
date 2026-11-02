@@ -42,6 +42,8 @@ export default function MembershipsPage() {
   const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
   const [pendingDeleteType, setPendingDeleteType] =
     useState<MembershipType | null>(null);
+  const [pendingDeleteMembership, setPendingDeleteMembership] =
+    useState<Membership | null>(null);
   const [warningDays, setWarningDays] = useState(7);
   const { toasts, push, dismiss } = useToasts();
 
@@ -103,6 +105,21 @@ export default function MembershipsPage() {
         "error",
         "No se pudo eliminar el plan. Puede que aún tenga membresías asociadas."
       );
+    }
+  }
+
+  async function confirmDeleteMembership() {
+    if (!pendingDeleteMembership) return;
+
+    try {
+      await apiFetch(`/memberships/${pendingDeleteMembership.id}`, {
+        method: "DELETE",
+      });
+      push("success", "La membresía fue eliminada");
+      setPendingDeleteMembership(null);
+      loadData();
+    } catch {
+      push("error", "No se pudo eliminar la membresía. Intenta de nuevo.");
     }
   }
 
@@ -205,6 +222,9 @@ export default function MembershipsPage() {
                   <th className="px-6 py-3 text-right font-medium text-muted">
                     Precio
                   </th>
+                  <th className="px-6 py-3 text-right font-medium text-muted">
+                    Acción
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -246,12 +266,22 @@ export default function MembershipsPage() {
                     <td className="px-6 py-2.5 text-right font-mono text-ink">
                       {membership.price.toFixed(2)}
                     </td>
+                    <td className="px-6 py-2.5 text-right">
+                      <button
+                        aria-label={`Eliminar membresía de ${membership.client.name}`}
+                        title="Eliminar membresía"
+                        onClick={() => setPendingDeleteMembership(membership)}
+                        className="btn btn-danger rounded !p-1.5"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {memberships.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-10 text-center text-muted"
                     >
                       Nadie tiene membresía aún. Asígnale una a tu primer
@@ -283,6 +313,16 @@ export default function MembershipsPage() {
           message={`Se eliminará el plan “${pendingDeleteType.name}” (${pendingDeleteType.durationDays} días). Esta acción no se puede deshacer.`}
           onConfirm={confirmDeleteType}
           onCancel={() => setPendingDeleteType(null)}
+        />
+      )}
+
+      {pendingDeleteMembership && (
+        <ConfirmDialog
+          title="Eliminar membresía"
+          confirmLabel="Eliminar membresía"
+          message={`Se eliminará la membresía de ${pendingDeleteMembership.client.name}, incluyendo sus pagos asociados. Esta acción no se puede deshacer.`}
+          onConfirm={confirmDeleteMembership}
+          onCancel={() => setPendingDeleteMembership(null)}
         />
       )}
 

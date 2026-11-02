@@ -31,3 +31,32 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const membershipId = parseInt(id, 10);
+
+    if (Number.isNaN(membershipId)) {
+      return NextResponse.json(
+        { error: "Invalid membership ID" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.membership.delete({
+      where: { id: membershipId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting membership:", error);
+    return NextResponse.json(
+      { error: "Error deleting membership" },
+      { status: 500 }
+    );
+  }
+}
