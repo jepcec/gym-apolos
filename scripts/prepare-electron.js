@@ -21,13 +21,13 @@ checkFile(
 );
 
 checkFile(
-  path.join(rootDir, "dev.db"),
-  "Database file"
+  path.join(rootDir, ".next", "static"),
+  "Next.js static files"
 );
 
 checkFile(
-  path.join(rootDir, ".next", "static"),
-  "Next.js static files"
+  path.join(rootDir, "prisma", "schema.prisma"),
+  "Prisma schema"
 );
 
 const iconPath = path.join(rootDir, "electron", "icon.ico");
