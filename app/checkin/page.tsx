@@ -166,12 +166,17 @@ export default function CheckinPage() {
 
       if (resetTimer.current) window.clearTimeout(resetTimer.current);
       resetTimer.current = window.setTimeout(resetScreen, 2600);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes("already exists")) {
-        push("warning", "Esta persona ya ingresó hoy");
-      } else {
-        push("error", "No se pudo registrar el ingreso. Intenta de nuevo.");
-      }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes("already exists")) {
+          push("warning", "Esta persona ya ingresó hoy");
+        } else if (
+          err instanceof Error &&
+          err.message.includes("membresía vigente")
+        ) {
+          push("warning", "No tiene una membresía vigente");
+        } else {
+          push("error", "No se pudo registrar el ingreso. Intenta de nuevo.");
+        }
     } finally {
       setIsCheckingIn(false);
     }
@@ -206,6 +211,9 @@ export default function CheckinPage() {
   const status = activeMembership
     ? getMembershipStatus(activeMembership.endDate, warningDays)
     : null;
+  const hasValidMembership = Boolean(
+    activeMembership && status && status.key !== "expired"
+  );
   const alreadyToday = client?.checkins.some((c) => isToday(c.checkinDate));
   const lastTodayEntry = client?.checkins.find((c) => isToday(c.checkinDate));
 
@@ -415,6 +423,18 @@ export default function CheckinPage() {
                 </p>
               )}
 
+              {!hasValidMembership && !alreadyToday && !justCheckedIn && (
+                <div
+                  className="mb-4 rounded-lg px-4 py-3 text-sm"
+                  style={{
+                    background: "var(--st-exp-bg)",
+                    color: "var(--st-exp-fg)",
+                  }}
+                >
+                  No se puede registrar el ingreso sin una membresía vigente.
+                </div>
+              )}
+
               {/* Acción principal */}
               {justCheckedIn ? (
                 <div
@@ -442,6 +462,14 @@ export default function CheckinPage() {
                     Buscar otro cliente
                   </button>
                 </div>
+              ) : !hasValidMembership ? (
+                <button
+                  disabled
+                  className="btn w-full cursor-not-allowed py-3.5 text-base opacity-60"
+                >
+                  <LogIn className="h-5 w-5" />
+                  Ingreso no permitido
+                </button>
               ) : (
                 <button
                   onClick={handleCheckin}

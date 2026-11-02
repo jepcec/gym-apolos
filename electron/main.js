@@ -42,30 +42,48 @@ function copyDatabaseIfNotExists() {
   return dbPath;
 }
 
-function waitForServer(url, retries = 60, interval = 500) {
+function waitForServer(url, retries = 180, interval = 500) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
+    let settled = false;
+
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+    };
+
+    const retry = () => {
+      if (settled) return;
+      if (attempts >= retries) {
+        finish(reject, new Error(`Server not ready after ${retries} attempts`));
+        return;
+      }
+      setTimeout(check, interval);
+    };
+
     const check = () => {
+      if (settled) return;
       attempts++;
       const req = http.get(url, (res) => {
-        resolve();
-      });
-      req.on("error", () => {
-        if (attempts >= retries) {
-          reject(new Error(`Server not ready after ${retries} attempts`));
-        } else {
-          setTimeout(check, interval);
+        res.resume();
+
+        // Una respuesta 5xx indica que el proceso ya escucha, pero Next aún
+        // no está listo para servir la aplicación.
+        if (res.statusCode && res.statusCode >= 500) {
+          retry();
+          return;
         }
+
+        finish(resolve);
       });
+
+      req.on("error", retry);
       req.setTimeout(1000, () => {
         req.destroy();
-        if (attempts >= retries) {
-          reject(new Error(`Server not ready after ${retries} attempts`));
-        } else {
-          setTimeout(check, interval);
-        }
       });
     };
+
     check();
   });
 }
@@ -118,16 +136,30 @@ function startNextServer() {
       console.error(`[Next.js] ${data}`);
     });
 
+    let serverReady = false;
+
     nextServer.on("error", (err) => {
       reject(new Error(`Failed to start server: ${err.message}`));
     });
 
     nextServer.on("close", (code) => {
       console.log(`Server process exited with code ${code}`);
+      if (!serverReady) {
+        reject(
+          new Error(
+            `Next.js server exited before becoming ready${
+              code === null ? "" : ` (code ${code})`
+            }`
+          )
+        );
+      }
     });
 
     waitForServer(`http://127.0.0.1:${PORT}`)
-      .then(() => resolve())
+      .then(() => {
+        serverReady = true;
+        resolve();
+      })
       .catch(reject);
   });
 }

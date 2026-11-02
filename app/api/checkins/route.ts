@@ -45,6 +45,22 @@ export async function POST(request: NextRequest) {
     const endOfDay = new Date(checkDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const validMembership = await prisma.membership.findFirst({
+      where: {
+        clientId,
+        status: "active",
+        startDate: { lte: endOfDay },
+        endDate: { gte: startOfDay },
+      },
+    });
+
+    if (!validMembership) {
+      return NextResponse.json(
+        { error: "El cliente no tiene una membresía vigente" },
+        { status: 403 }
+      );
+    }
+
     const existingCheckin = await prisma.checkin.findFirst({
       where: {
         clientId,
