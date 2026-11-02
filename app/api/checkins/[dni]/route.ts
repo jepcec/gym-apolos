@@ -3,13 +3,13 @@ import prisma from "../../../lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: { params: Promise<{ dni: string }> }
 ) {
   try {
-    const { code } = await params;
+    const { dni } = await params;
 
     const client = await prisma.client.findUnique({
-      where: { code },
+      where: { dni },
       include: {
         memberships: {
           where: { status: "active" },

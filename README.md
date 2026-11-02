@@ -1,11 +1,11 @@
-# 🏋️ Apolos Gym Control
+# 🏋️ Forja Gym
 
 Aplicación de escritorio para la gestión integral de gimnasios, desarrollada con **Electron + Next.js** y distribuida como un ejecutable para Windows. Permite administrar clientes, membresías, pagos y asistencias desde una interfaz moderna, con almacenamiento local mediante SQLite.
 
 ## ✨ Características
 
 - 👤 Gestión de clientes (CRUD)
-- 🏷️ Código de cliente autogenerado
+- 🆔 DNI como código de verificación (único y obligatorio)
 - 💳 Administración de membresías
 - 📅 Control de fechas de vigencia y estados
 - ✅ Registro diario de check-ins
@@ -62,7 +62,7 @@ SQLite
 - Eliminación
 - Búsqueda
 - Filtros
-- Código autogenerado
+- DNI único y obligatorio, usado como código de verificación
 
 ### Membresías
 
@@ -116,8 +116,8 @@ Exportación a CSV de:
 Clonar el repositorio
 
 ```bash
-git clone https://github.com/usuario/apolos-gym-control.git
-cd apolos-gym-control
+git clone https://github.com/usuario/forja-gym-control.git
+cd forja-gym-control
 ```
 
 Instalar dependencias

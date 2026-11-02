@@ -1,26 +1,359 @@
 @import "tailwindcss";
 
+/* El tema se controla por la clase .dark (Theme), no por el SO */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Fierro y cal — modo claro */
+  --canvas: #fafaf8;
+  --surface: #ffffff;
+  --ink: #1b1c1e;
+  --muted: #6f7075;
+  --line: #e4e2dc;
+  --line-soft: #efece6;
+
+  --ember: #b8451a;
+  --ember-soft: #f3e3da;
+
+  /* Estados "discos" (verde / amarillo / rojo) */
+  --st-active-bg: #e6f4e9;
+  --st-active-fg: #2b7a3d;
+  --st-warn-bg: #f9edd4;
+  --st-warn-fg: #8a5b0b;
+  --st-exp-bg: #fae4e4;
+  --st-exp-fg: #a12626;
+  --st-none-bg: #efefec;
+  --st-none-fg: #6f7075;
+}
+
+.dark {
+  /* Fierro y cal — modo oscuro */
+  --canvas: #141517;
+  --surface: #1d1e21;
+  --ink: #ecece9;
+  --muted: #9b9ca1;
+  --line: #2f3134;
+  --line-soft: #26282b;
+
+  --ember: #ef7a45;
+  --ember-soft: #3a2417;
+
+  --st-active-bg: #17301d;
+  --st-active-fg: #83d695;
+  --st-warn-bg: #362713;
+  --st-warn-fg: #ecc16f;
+  --st-exp-bg: #381d1d;
+  --st-exp-fg: #f1938a;
+  --st-none-bg: #26282b;
+  --st-none-fg: #a0a1a5;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ember: var(--ember);
+  --color-iron: #17181b;
+  --color-iron-soft: #24262a;
+  --color-iron-line: #32353a;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: var(--font-barlow-cond);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@layer components {
+  .page-title {
+    font-family: var(--font-barlow-cond), sans-serif;
+    font-weight: 700;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 0.75rem;
+  }
+
+  .num {
+    font-family: var(--font-barlow-cond), sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  .input::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+  }
+  .input:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: -1px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Acción principal = hierro sólido */
+  .btn-primary {
+    background: #24262a;
+    color: #f2f1ee;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #17181b;
+  }
+  .dark .btn-primary {
+    background: #d8d6d0;
+    color: #1b1c1e;
+  }
+  .dark .btn-primary:hover:not(:disabled) {
+    background: #eeece7;
+  }
+
+  /* Secundario: contorno sobre la superficie */
+  .btn-outline {
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background: var(--surface);
+  }
+  .btn-outline:hover:not(:disabled) {
+    border-color: var(--muted);
+  }
+
+  /* Fantasma (acciones dentro de tablas/filas) */
+  .btn-ghost {
+    color: var(--muted);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--line-soft);
+    color: var(--ink);
+  }
+
+  .btn-danger {
+    color: var(--st-exp-fg);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--st-exp-bg);
+  }
+
+  /* Chips de estado: "discos" */
+  .plate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 999px;
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .plate::before {
+    content: "";
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 999px;
+    background: currentColor;
+  }
+  .plate-active {
+    background: var(--st-active-bg);
+    color: var(--st-active-fg);
+  }
+  .plate-warn {
+    background: var(--st-warn-bg);
+    color: var(--st-warn-fg);
+  }
+  .plate-expired {
+    background: var(--st-exp-bg);
+    color: var(--st-exp-fg);
+  }
+  .plate-none {
+    background: var(--st-none-bg);
+    color: var(--st-none-fg);
+  }
+
+  /* Código de cliente, estilo serie de placa */
+  .code-chip {
+    font-family: var(--font-geist-mono), monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+    border-radius: 0.375rem;
+    padding: 0.0625rem 0.4375rem;
+    color: var(--ink);
+    background: var(--canvas);
+    white-space: nowrap;
+  }
+
+  /* Moleteado del hierro: divisor / textura de marca */
+  .knurl {
+    display: inline-block;
+    width: 28px;
+    height: 8px;
+    background: repeating-linear-gradient(
+      90deg,
+      currentColor 0 2px,
+      transparent 2px 6px
+    );
+    border-radius: 1px;
+  }
+
+  /* ---- Sidebar: la fragua ---- */
+
+  /* Brasa que sube desde el fondo de la barra */
+  .iron-forge {
+    background:
+      radial-gradient(130% 52% at 50% 100%, rgba(239, 122, 69, 0.13), transparent 62%),
+      linear-gradient(180deg, #17181b 0%, #191a1d 100%);
+  }
+
+  /* Divisor knurling bajo la marca */
+  .knurl-rule {
+    height: 7px;
+    background: repeating-linear-gradient(
+      90deg,
+      #34373d 0 7px,
+      transparent 7px 15px
+    );
+    opacity: 0.8;
+  }
+
+  .nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.5rem;
+    padding: 0.5625rem 0.75rem;
+    font-size: 0.875rem;
+    color: #9b9ca1;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+  .nav-link:hover {
+    background: #1f2124;
+    color: #e8e7e3;
+  }
+  .nav-link.is-active {
+    background: linear-gradient(90deg, #26282c 0%, #212327 100%);
+    color: #f2f1ee;
+    font-weight: 500;
+  }
+  /* Barra de brasa con resplandor en el item activo */
+  .nav-link.is-active::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 18%;
+    bottom: 18%;
+    width: 3px;
+    border-radius: 999px;
+    background: #ef7a45;
+    box-shadow: 0 0 10px 1px rgba(239, 122, 69, 0.55);
+  }
+
+  /* Stack de discos (bumper plates) que llena el vacío inferior.
+     Uno de ellos recibe la luz de la fragua en su borde superior. */
+  .disc-stack {
+    position: relative;
+    height: 116px;
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+  .disc {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    border-radius: 50%;
+  }
+  .disc-outer {
+    width: 96px;
+    height: 96px;
+    border: 9px solid rgba(239, 122, 69, 0.22);
+    box-shadow: 0 0 22px rgba(239, 122, 69, 0.1);
+  }
+  .disc-mid {
+    width: 62px;
+    height: 62px;
+    border: 8px solid #272930;
+  }
+  .disc-inner {
+    width: 34px;
+    height: 34px;
+    border: 5px solid #2f3238;
+  }
+  .disc-hub {
+    width: 8px;
+    height: 8px;
+    background: #3d4046;
+  }
+}
+
+@keyframes plate-flash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--st-active-fg) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-plate {
+    animation: plate-flash 0.7s ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-plate {
+    animation: none;
+  }
 }

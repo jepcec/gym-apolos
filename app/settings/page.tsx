@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, AlertCircle, Database, Download, Upload, Trash2, RefreshCw, Plus, Shield } from "lucide-react";
+import {
+  Save,
+  Database,
+  Download,
+  Upload,
+  Trash2,
+  RefreshCw,
+  Plus,
+  Shield,
+} from "lucide-react";
 import SidebarLayout from "../components/SidebarLayout";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { apiFetch } from "../lib/api";
 
 interface Settings {
@@ -19,6 +29,11 @@ interface Backup {
   size: number;
   createdAt: string;
 }
+
+type PendingAction =
+  | { kind: "delete"; backup: Backup }
+  | { kind: "restore"; backup: Backup }
+  | null;
 
 declare global {
   interface Window {
@@ -52,6 +67,7 @@ export default function SettingsPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [backupLoading, setBackupLoading] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
+  const [pending, setPending] = useState<PendingAction>(null);
 
   useEffect(() => {
     setIsElectron(typeof window !== "undefined" && !!window.electronAPI);
@@ -110,10 +126,10 @@ export default function SettingsPage() {
         }
       }
 
-      setMessage({ type: "success", text: "Configuración guardada exitosamente" });
+      setMessage({ type: "success", text: "Configuración guardada" });
     } catch (error) {
       console.error("Error saving settings:", error);
-      setMessage({ type: "error", text: "Error al guardar configuración" });
+      setMessage({ type: "error", text: "No se pudo guardar la configuración. Intenta de nuevo." });
     } finally {
       setSaving(false);
     }
@@ -125,48 +141,44 @@ export default function SettingsPage() {
     try {
       const result = await window.electronAPI.backup.create();
       if (result.success) {
-        setMessage({ type: "success", text: "Backup creado exitosamente" });
+        setMessage({ type: "success", text: "Backup creado" });
         await loadBackups();
       } else {
         setMessage({ type: "error", text: `Error: ${result.error}` });
       }
     } catch (error) {
       console.error("Error creating backup:", error);
-      setMessage({ type: "error", text: "Error al crear backup" });
+      setMessage({ type: "error", text: "No se pudo crear el backup." });
     } finally {
       setBackupLoading(false);
     }
   }
 
-  async function handleDeleteBackup(id: string) {
-    if (!window.electronAPI) return;
-    if (!confirm("¿Estás seguro de eliminar este backup?")) return;
+  async function runPendingAction() {
+    if (!pending || !window.electronAPI) return;
+    const { kind, backup } = pending;
     try {
-      const result = await window.electronAPI.backup.delete(id);
-      if (result.success) {
-        setMessage({ type: "success", text: "Backup eliminado" });
-        await loadBackups();
-      } else {
-        setMessage({ type: "error", text: `Error: ${result.error}` });
-      }
-    } catch (error) {
-      console.error("Error deleting backup:", error);
-    }
-  }
+      const result =
+        kind === "delete"
+          ? await window.electronAPI.backup.delete(backup.id)
+          : await window.electronAPI.backup.restore(backup.id);
 
-  async function handleRestoreBackup(id: string) {
-    if (!window.electronAPI) return;
-    if (!confirm("¿Restaurar este backup? La aplicación se reiniciará y los datos actuales serán reemplazados.")) return;
-    try {
-      const result = await window.electronAPI.backup.restore(id);
       if (result.success) {
-        setMessage({ type: "success", text: "Backup restaurado. Reiniciando aplicación..." });
-        setTimeout(() => window.location.reload(), 2000);
+        if (kind === "delete") {
+          setMessage({ type: "success", text: "Backup eliminado" });
+          await loadBackups();
+        } else {
+          setMessage({ type: "success", text: "Backup restaurado. Reiniciando la aplicación…" });
+          setTimeout(() => window.location.reload(), 2000);
+        }
       } else {
         setMessage({ type: "error", text: `Error: ${result.error}` });
       }
     } catch (error) {
-      console.error("Error restoring backup:", error);
+      console.error("Backup action failed:", error);
+      setMessage({ type: "error", text: "La operación de backup falló." });
+    } finally {
+      setPending(null);
     }
   }
 
@@ -189,7 +201,7 @@ export default function SettingsPage() {
     try {
       const result = await window.electronAPI.backup.import();
       if (result.success) {
-        setMessage({ type: "success", text: "Backup importado exitosamente" });
+        setMessage({ type: "success", text: "Backup importado" });
         await loadBackups();
       } else if (!result.canceled) {
         setMessage({ type: "error", text: `Error: ${result.error}` });
@@ -214,11 +226,18 @@ export default function SettingsPage() {
     return new Date(dateStr).toLocaleString("es-PE");
   }
 
+  const latestBackup = backups.length
+    ? [...backups].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0]
+    : null;
+
   if (loading) {
     return (
       <SidebarLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-zinc-500 dark:text-zinc-400">Cargando...</div>
+        <div className="space-y-3">
+          <div className="h-8 w-40 animate-pulse rounded bg-[var(--line-soft)]" />
+          <div className="h-64 animate-pulse rounded-xl bg-[var(--line-soft)]" />
         </div>
       </SidebarLayout>
     );
@@ -226,36 +245,47 @@ export default function SettingsPage() {
 
   return (
     <SidebarLayout>
-      <div className="max-w-2xl space-y-6">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
-          Configuración
-        </h1>
+      <div className="max-w-2xl space-y-5">
+        <h1 className="page-title">Configuración</h1>
 
         {message && (
           <div
-            className={`flex items-center gap-3 rounded-lg px-4 py-3 ${
-              message.type === "success"
-                ? "bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
-                : "bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
-            }`}
+            className="flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+            style={{
+              background:
+                message.type === "success"
+                  ? "var(--st-active-bg)"
+                  : "var(--st-exp-bg)",
+              color:
+                message.type === "success"
+                  ? "var(--st-active-fg)"
+                  : "var(--st-exp-fg)",
+            }}
+            role="status"
           >
-            {message.type === "error" && <AlertCircle className="h-5 w-5" />}
-            <p className="text-sm">{message.text}</p>
+            <p>{message.text}</p>
+            <button
+              onClick={() => setMessage(null)}
+              aria-label="Cerrar aviso"
+              className="font-medium opacity-60 hover:opacity-100"
+            >
+              ✕
+            </button>
           </div>
         )}
 
         <form onSubmit={handleSave}>
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-            <div className="border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-                Configuración General
+          <div className="card">
+            <div className="border-b border-[var(--line-soft)] px-6 py-4">
+              <h2 className="text-base font-semibold text-ink">
+                Configuración general
               </h2>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Días de inactividad umbral
+                <label className="mb-1 block text-sm font-medium text-ink">
+                  Días de inactividad
                 </label>
                 <input
                   type="number"
@@ -263,16 +293,17 @@ export default function SettingsPage() {
                   value={settings.inactivity_days}
                   onChange={handleChange}
                   min="1"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="input max-w-40 font-mono"
                 />
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Número de días sin actividad antes de marcar un cliente como inactivo
+                <p className="mt-1 text-xs text-muted">
+                  Cuántos días sin visitar el gimnasio antes de marcar a un
+                  cliente como inactivo.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Días de aviso de membresía por vencer
+                <label className="mb-1 block text-sm font-medium text-ink">
+                  Días de aviso por vencer
                 </label>
                 <input
                   type="number"
@@ -280,75 +311,85 @@ export default function SettingsPage() {
                   value={settings.warning_days}
                   onChange={handleChange}
                   min="1"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="input max-w-40 font-mono"
                 />
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Número de días antes del vencimiento para mostrar aviso
+                <p className="mt-1 text-xs text-muted">
+                  Con cuánta anticipación la app marca una membresía como «por
+                  vencer» y la pone en tu cola del dashboard.
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-end border-t border-zinc-200 dark:border-zinc-700 px-6 py-4">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
+            <div className="flex justify-end border-t border-[var(--line-soft)] px-6 py-4">
+              <button type="submit" disabled={saving} className="btn btn-primary">
                 <Save className="h-4 w-4" />
-                {saving ? "Guardando..." : "Guardar Configuración"}
+                {saving ? "Guardando…" : "Guardar configuración"}
               </button>
             </div>
           </div>
         </form>
 
         {isElectron && (
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-            <div className="border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
-                  <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-                    Backups
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleImportBackup}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Importar
-                  </button>
-                  <button
-                    onClick={handleCreateBackup}
-                    disabled={backupLoading}
-                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {backupLoading ? "Creando..." : "Nuevo Backup"}
-                  </button>
-                </div>
+          <div className="card">
+            <div className="flex items-center justify-between border-b border-[var(--line-soft)] px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-muted" />
+                <h2 className="text-base font-semibold text-ink">Backups</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleImportBackup}
+                  className="btn btn-outline !py-1.5"
+                >
+                  <Upload className="h-4 w-4" />
+                  Importar
+                </button>
+                <button
+                  onClick={handleCreateBackup}
+                  disabled={backupLoading}
+                  className="btn btn-primary !py-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  {backupLoading ? "Creando…" : "Nuevo backup"}
+                </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            {/* Estado del respaldo: el dato vive solo en este computador */}
+            <div className="border-b border-[var(--line-soft)] px-6 py-4">
+              <p className="text-sm text-muted">
+                Último respaldo:{" "}
+                {latestBackup ? (
+                  <span className="font-medium text-ink">
+                    {formatDate(latestBackup.createdAt)}
+                  </span>
+                ) : (
+                  <span style={{ color: "var(--st-warn-fg)" }}>
+                    ninguno. Tus datos viven solo en este computador: crea tu
+                    primer respaldo ahora.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-4 p-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-ink">
                     Backup automático
                   </label>
                   <select
                     name="backup_auto_enabled"
                     value={settings.backup_auto_enabled}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="input"
                   >
                     <option value="false">Desactivado</option>
                     <option value="true">Activado</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-ink">
                     Frecuencia
                   </label>
                   <select
@@ -356,7 +397,7 @@ export default function SettingsPage() {
                     value={settings.backup_frequency}
                     onChange={handleChange}
                     disabled={settings.backup_auto_enabled !== "true"}
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                    className="input disabled:opacity-50"
                   >
                     <option value="daily">Diario</option>
                     <option value="weekly">Semanal</option>
@@ -365,8 +406,8 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Cantidad de backups a mantener
+                <label className="mb-1 block text-sm font-medium text-ink">
+                  Backups a mantener
                 </label>
                 <input
                   type="number"
@@ -375,58 +416,62 @@ export default function SettingsPage() {
                   onChange={handleChange}
                   min="1"
                   max="100"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="input max-w-40 font-mono"
                 />
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Los backups más antiguos se eliminarán automáticamente
+                <p className="mt-1 text-xs text-muted">
+                  Los más antiguos se eliminan automáticamente.
                 </p>
               </div>
             </div>
 
-            <div className="border-t border-zinc-200 dark:border-zinc-700 px-6 py-4">
-              <h3 className="text-sm font-medium text-zinc-900 dark:text-white mb-3">
-                Backups disponibles ({backups.length})
+            <div className="border-t border-[var(--line-soft)] px-6 py-4">
+              <h3 className="mb-3 text-sm font-semibold text-ink">
+                Respaldos guardados ({backups.length})
               </h3>
               {backups.length === 0 ? (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center py-4">
-                  No hay backups disponibles
+                <p className="py-4 text-center text-sm text-muted">
+                  Aún no hay respaldos guardados en este equipo.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="max-h-64 space-y-2 overflow-y-auto">
                   {backups.map((backup) => (
                     <div
                       key={backup.id}
-                      className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] p-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <Database className="h-5 w-5 text-zinc-400" />
-                        <div>
-                          <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Database className="h-5 w-5 flex-shrink-0 text-muted" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink">
                             {backup.name}
                           </p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {formatDate(backup.createdAt)} · {formatFileSize(backup.size)}
+                          <p className="font-mono text-xs text-muted">
+                            {formatDate(backup.createdAt)} ·{" "}
+                            {formatFileSize(backup.size)}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => handleRestoreBackup(backup.id)}
-                          className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                          onClick={() => setPending({ kind: "restore", backup })}
+                          aria-label={`Restaurar ${backup.name}`}
+                          className="btn btn-ghost rounded !p-2"
                           title="Restaurar"
                         >
                           <RefreshCw className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleExportBackup(backup.id)}
-                          className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                          aria-label={`Exportar ${backup.name}`}
+                          className="btn btn-ghost rounded !p-2"
                           title="Exportar"
                         >
                           <Download className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteBackup(backup.id)}
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                          onClick={() => setPending({ kind: "delete", backup })}
+                          aria-label={`Eliminar ${backup.name}`}
+                          className="btn btn-danger rounded !p-2"
                           title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -440,6 +485,20 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {pending && (
+        <ConfirmDialog
+          title={pending.kind === "restore" ? "Restaurar backup" : "Eliminar backup"}
+          confirmLabel={pending.kind === "restore" ? "Restaurar" : "Eliminar"}
+          message={
+            pending.kind === "restore"
+              ? `Se restaurará “${pending.backup.name}” (${formatDate(pending.backup.createdAt)}). La aplicación se reiniciará y los datos actuales serán reemplazados por los de ese respaldo.`
+              : `Se eliminará el respaldo “${pending.backup.name}” de este computador.`
+          }
+          onConfirm={runPendingAction}
+          onCancel={() => setPending(null)}
+        />
+      )}
     </SidebarLayout>
   );
 }

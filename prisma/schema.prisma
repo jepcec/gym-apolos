@@ -9,9 +9,8 @@ datasource db {
 
 model Client {
   id         Int          @id @default(autoincrement())
-  code       String       @unique
   name       String
-  dni        String?
+  dni        String       @unique
   phone      String?
   email      String?
   birthDate  DateTime?

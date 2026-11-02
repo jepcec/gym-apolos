@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
+import { normalizeDni, validateDni } from "../../../lib/dni";
 
 export async function GET(
   request: NextRequest,
@@ -44,11 +45,29 @@ export async function PUT(
     const body = await request.json();
     const { name, dni, phone, email, birthDate, address, status } = body;
 
+    let dniClean: string | undefined;
+    if (dni !== undefined) {
+      const dniError = validateDni(dni);
+      if (dniError) {
+        return NextResponse.json({ error: dniError }, { status: 400 });
+      }
+      dniClean = normalizeDni(dni);
+      const conflicto = await prisma.client.findFirst({
+        where: { dni: dniClean, NOT: { id: parseInt(id, 10) } },
+      });
+      if (conflicto) {
+        return NextResponse.json(
+          { error: `El DNI ${dniClean} ya está registrado a nombre de ${conflicto.name}` },
+          { status: 409 }
+        );
+      }
+    }
+
     const client = await prisma.client.update({
       where: { id: parseInt(id, 10) },
       data: {
         ...(name !== undefined && { name }),
-        ...(dni !== undefined && { dni }),
+        ...(dniClean !== undefined && { dni: dniClean }),
         ...(phone !== undefined && { phone }),
         ...(email !== undefined && { email }),
         ...(birthDate !== undefined && { birthDate: birthDate ? new Date(birthDate) : null }),

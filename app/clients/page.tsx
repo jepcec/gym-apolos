@@ -2,26 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  CreditCard,
-  RefreshCw,
-  Copy,
-} from "lucide-react";
+import { Search, Plus, Trash2, CreditCard, RefreshCw, Copy } from "lucide-react";
+import { ClientFormValues } from "../components/ClientForm";
 import SidebarLayout from "../components/SidebarLayout";
 import ClientDetailModal from "../components/ClientDetailModal";
 import MembershipModal from "../components/MembershipModal";
+import ConfirmDialog from "../components/ConfirmDialog";
+import ToastStack, { useToasts } from "../components/Toast";
 import { apiFetch } from "../lib/api";
 import { getMembershipStatus } from "../lib/membershipStatus";
 
 interface Client {
   id: number;
-  code: string;
   name: string;
-  dni: string | null;
+  dni: string;
   phone: string | null;
   email: string | null;
   birthDate: string | null;
@@ -35,7 +29,12 @@ interface Client {
     endDate: string;
     status: string;
     price: number;
-    type: { id: number; name: string; durationDays: number; price: number } | null;
+    type: {
+      id: number;
+      name: string;
+      durationDays: number;
+      price: number;
+    } | null;
   }>;
   checkins: Array<{ id: number; checkinDate: string }>;
 }
@@ -49,8 +48,10 @@ interface MembershipType {
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
   const [membershipModal, setMembershipModal] = useState<{
     mode: "assign" | "renew";
     clientId?: number;
@@ -59,6 +60,7 @@ export default function ClientsPage() {
   } | null>(null);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
   const [warningDays, setWarningDays] = useState(7);
+  const { toasts, push, dismiss } = useToasts();
 
   useEffect(() => {
     loadClients();
@@ -75,6 +77,9 @@ export default function ClientsPage() {
       setWarningDays(parseInt(settingsData.warning_days || "7", 10));
     } catch (error) {
       console.error("Error loading clients:", error);
+      push("error", "No se pudo cargar la lista de clientes.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -87,15 +92,39 @@ export default function ClientsPage() {
     }
   }
 
-  async function handleDeleteClient(id: number) {
-    if (!confirm("¿Estás seguro de eliminar este cliente?")) return;
+  async function confirmDeleteClient() {
+    if (!pendingDelete) return;
     try {
-      await apiFetch(`/clients/${id}`, { method: "DELETE" });
+      await apiFetch(`/clients/${pendingDelete.id}`, { method: "DELETE" });
+      push("success", `${pendingDelete.name} fue eliminado`);
+      setPendingDelete(null);
       setSelectedClient(null);
       loadClients();
+    } catch {
+      push("error", "No se pudo eliminar al cliente. Intenta de nuevo.");
+    }
+  }
+
+  async function handleEditClient(
+    id: number,
+    values: ClientFormValues
+  ): Promise<string | null> {
+    try {
+      const updated = await apiFetch<Partial<Client>>(`/clients/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(values),
+      });
+      setClients((list) =>
+        list.map((c) => (c.id === id ? { ...c, ...updated } : c))
+      );
+      setSelectedClient((c) => (c && c.id === id ? { ...c, ...updated } : c));
+      push("success", "Datos actualizados");
+      return null;
     } catch (error) {
-      console.error("Error deleting client:", error);
-      alert("Error al eliminar cliente");
+      console.error("Error updating client:", error);
+      return error instanceof Error
+        ? error.message
+        : "No se pudo guardar. Intenta de nuevo.";
     }
   }
 
@@ -111,48 +140,42 @@ export default function ClientsPage() {
         method: "POST",
         body: JSON.stringify(data),
       });
+      push("success", "Membresía guardada");
       setMembershipModal(null);
       setSelectedClient(null);
       loadClients();
-    } catch (error) {
-      console.error("Error saving membership:", error);
-      alert("Error al guardar membresía");
+    } catch {
+      push("error", "No se pudo guardar la membresía. Intenta de nuevo.");
     }
   }
 
   const filteredClients = clients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (client.dni && client.dni.includes(searchQuery))
+      client.dni.includes(searchQuery)
   );
 
   return (
     <SidebarLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
-            Clientes
-          </h1>
-          <Link
-            href="/clients/new/"
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
+          <h1 className="page-title">Clientes</h1>
+          <Link href="/clients/new/" className="btn btn-primary">
             <Plus className="h-4 w-4" />
-            Nuevo Cliente
+            Nuevo cliente
           </Link>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-          <div className="p-4">
+        <div className="card">
+          <div className="p-4 pb-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input
                 type="text"
-                placeholder="Buscar por nombre, código o DNI..."
+                placeholder="Buscar por nombre o DNI…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 pl-10 pr-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input pl-9"
               />
             </div>
           </div>
@@ -160,144 +183,145 @@ export default function ClientsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-t border-b border-zinc-200 dark:border-zinc-700 text-left">
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Código
-                  </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Nombre
-                  </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    DNI
-                  </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Teléfono
-                  </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Membresía
-                  </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
+                <tr className="border-b border-[var(--line)] text-left">
+                  <th className="px-4 py-3 font-medium text-muted">DNI</th>
+                  <th className="px-4 py-3 font-medium text-muted">Nombre</th>
+                  <th className="px-4 py-3 font-medium text-muted">Teléfono</th>
+                  <th className="px-4 py-3 font-medium text-muted">Membresía</th>
+                  <th className="px-4 py-3 font-medium text-muted">
                     Vencimiento
                   </th>
-                  <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">
+                  <th className="px-4 py-3 text-right font-medium text-muted">
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredClients.map((client) => {
-                  const currentMembership = client.memberships[0];
-                  return (
-                    <tr
-                      key={client.id}
-                      onClick={() => setSelectedClient(client)}
-                      className="border-b border-zinc-100 dark:border-zinc-700/50 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/20"
-                    >
-                      <td className="px-4 py-3 text-zinc-900 dark:text-white">
-                        <div className="flex items-center gap-2">
-                          {client.code}
-                          <Copy
-                            className="h-3 w-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(client.code);
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-900 dark:text-white">
-                        {client.name}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
-                        {client.dni || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
-                        {client.phone || "-"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {currentMembership ? (
-                          <span
-                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(currentMembership.endDate, warningDays).className}`}
-                          >
-                            {getMembershipStatus(currentMembership.endDate, warningDays).label}
-                          </span>
-                        ) : (
-                          <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400">
-                            Sin membresía
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {currentMembership ? (
-                          <span className="text-zinc-900 dark:text-white">
-                            {new Date(
-                              currentMembership.endDate
-                            ).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-zinc-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {!currentMembership ? (
-                            <button
-                              onClick={() =>
-                                setMembershipModal({
-                                  mode: "assign",
-                                  clientId: client.id,
-                                  clientName: client.name,
-                                })
-                              }
-                              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                              title="Asignar membresía"
-                            >
-                              <CreditCard className="h-4 w-4" />
-                            </button>
-                          ) : getMembershipStatus(currentMembership.endDate, warningDays).label === "Vencida" || getMembershipStatus(currentMembership.endDate, warningDays).label === "Por vencer" ? (
-                            <button
-                              onClick={() =>
-                                setMembershipModal({
-                                  mode: "renew",
-                                  clientId: client.id,
-                                  clientName: client.name,
-                                  membership: currentMembership,
-                                })
-                              }
-                              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                              title="Renovar membresía"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                            </button>
-                          ) : null}
-                          <button
-                            onClick={() =>
-                              setSelectedClient(client)
-                            }
-                            className="rounded-lg p-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                            title="Ver detalles"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClient(client.id)}
-                            className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                {loading &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={6} className="px-4 py-2">
+                        <div className="h-8 animate-pulse rounded bg-[var(--line-soft)]" />
                       </td>
                     </tr>
-                  );
-                })}
-                {filteredClients.length === 0 && (
+                  ))}
+                {!loading &&
+                  filteredClients.map((client) => {
+                    const currentMembership = client.memberships[0];
+                    const st = currentMembership
+                      ? getMembershipStatus(
+                          currentMembership.endDate,
+                          warningDays
+                        )
+                      : null;
+                    return (
+                      <tr
+                        key={client.id}
+                        onClick={() => setSelectedClient(client)}
+                        className="cursor-pointer border-b border-[var(--line-soft)] hover:bg-[var(--line-soft)]/60"
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="code-chip">{client.dni}</span>
+                            <button
+                              aria-label={`Copiar DNI ${client.dni}`}
+                              className="btn-ghost rounded p-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(client.dni);
+                                push("success", `DNI ${client.dni} copiado`);
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-ink">{client.name}</td>
+                        <td className="px-4 py-2.5 text-muted">
+                          {client.phone || "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {st ? (
+                            <span className={st.className}>{st.label}</span>
+                          ) : (
+                            <span className="plate plate-none">
+                              Sin membresía
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-ink">
+                          {currentMembership
+                            ? new Date(
+                                currentMembership.endDate
+                              ).toLocaleDateString("es-PE")
+                            : "—"}
+                        </td>
+                        <td
+                          className="px-4 py-2.5 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            {st && st.key !== "active" ? (
+                              <button
+                                title="Renovar membresía"
+                                onClick={() =>
+                                  setMembershipModal({
+                                    mode: "renew",
+                                    clientId: client.id,
+                                    clientName: client.name,
+                                    membership: currentMembership,
+                                  })
+                                }
+                                className="btn btn-outline !px-2 !py-1 !text-xs"
+                              >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                Renovar
+                              </button>
+                            ) : !currentMembership ? (
+                              <button
+                                title="Asignar membresía"
+                                onClick={() =>
+                                  setMembershipModal({
+                                    mode: "assign",
+                                    clientId: client.id,
+                                    clientName: client.name,
+                                  })
+                                }
+                                className="btn btn-outline !px-2 !py-1 !text-xs"
+                              >
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Asignar
+                              </button>
+                            ) : null}
+                            <button
+                              title="Eliminar cliente"
+                              aria-label={`Eliminar a ${client.name}`}
+                              onClick={() => setPendingDelete(client)}
+                              className="btn btn-danger rounded p-1.5"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {!loading && filteredClients.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400"
-                    >
-                      No se encontraron clientes
+                    <td colSpan={6} className="px-4 py-10 text-center text-muted">
+                      {clients.length === 0 ? (
+                        <>
+                          Aún no hay clientes registrados.{" "}
+                          <Link
+                            href="/clients/new/"
+                            className="font-medium text-ember underline underline-offset-2"
+                          >
+                            Registra al primero
+                          </Link>
+                        </>
+                      ) : (
+                        <>Nada coincide con “{searchQuery}”.</>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -313,7 +337,7 @@ export default function ClientsPage() {
           membershipTypes={membershipTypes}
           warningDays={warningDays}
           onClose={() => setSelectedClient(null)}
-          onDelete={handleDeleteClient}
+          onDelete={() => setPendingDelete(selectedClient)}
           onAssignMembership={(clientId) => {
             setMembershipModal({
               mode: "assign",
@@ -321,6 +345,7 @@ export default function ClientsPage() {
               clientName: selectedClient.name,
             });
           }}
+          onSaveEdit={handleEditClient}
           onRenewMembership={(clientId) => {
             const membership = selectedClient.memberships.find(
               (m) => m.status === "active"
@@ -336,6 +361,15 @@ export default function ClientsPage() {
         />
       )}
 
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Eliminar cliente"
+          message={`Se eliminará a ${pendingDelete.name} (DNI ${pendingDelete.dni}) junto con sus membresías, pagos e ingresos. Esta acción no se puede deshacer.`}
+          onConfirm={confirmDeleteClient}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
+
       {membershipModal && (
         <MembershipModal
           mode={membershipModal.mode}
@@ -347,6 +381,8 @@ export default function ClientsPage() {
           onSave={handleSaveMembership}
         />
       )}
+
+      <ToastStack toasts={toasts} dismiss={dismiss} />
     </SidebarLayout>
   );
 }

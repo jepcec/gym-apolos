@@ -1,8 +1,8 @@
-# Apolos Gym Control - Documento de Implementación
+# Forja Gym - Documento de Implementación
 
 ## Resumen General
 
-**Apolos Gym Control** es un sistema de gestión para gimnasios que permite administrar clientes, membresías, asistencias (check-ins), pagos y reportes. Está construido con:
+**Forja Gym** es un sistema de gestión para gimnasios que permite administrar clientes, membresías, asistencias (check-ins), pagos y reportes. Está construido con:
 
 - **Frontend:** Next.js 16 (App Router) con React 19, Tailwind CSS v4, TypeScript
 - **Backend:** Go con framework Chi como router HTTP y SQLite como base de datos
@@ -17,12 +17,12 @@ El frontend se exporta como sitio estático (`output: 'export'`) y se comunica c
 
 | Ruta | Archivo | Descripción |
 |------|---------|-------------|
-| `/` | `app/page.tsx` | **Dashboard** - Muestra métricas clave (clientes activos, membresías por vencer, check-ins del día, ingresos mensuales, clientes nuevos). Incluye sección tabulada de estado de membresías (Por vencer, Vencidas, Activas, Sin membresía) con tabla de clientes buscable. Al hacer clic en una fila se copia el código del cliente al portapapeles. |
+| `/` | `app/page.tsx` | **Dashboard** - Muestra métricas clave (clientes activos, membresías por vencer, check-ins del día, ingresos mensuales, clientes nuevos). Incluye sección tabulada de estado de membresías (Por vencer, Vencidas, Activas, Sin membresía) con tabla de clientes buscable. Incluye botón para renovar desde la fila y acción para ver la ficha del cliente. |
 | `/login/` | `app/login/page.tsx` | **Login** - Formulario de usuario/contraseña. Pre-llena usuario "admin" y muestra hint de contraseña por defecto ("admin123"). Autentica vía `POST /api/login`, almacena token JWT en localStorage, redirige al dashboard. |
 | `/clients/` | `app/clients/page.tsx` | **Lista de Clientes** - Tabla completa con búsqueda por nombre, código o DNI. Muestra badges de estado de membresía (Activa/Por vencer/Vencida/Sin membresía). Botones de acción: asignar membresía, renovar membresía, editar (placeholder), eliminar. Al hacer clic en una fila se abre ClientDetailModal. |
 | `/clients/new/` | `app/clients/new/page.tsx` | **Nuevo Cliente** - Formulario con campos: nombre (requerido), DNI, teléfono, email, fecha de nacimiento, dirección. Tras crear exitosamente, muestra diálogo preguntando si se desea asignar una membresía inmediatamente. |
 | `/memberships/` | `app/memberships/page.tsx` | **Membresías** - Dos secciones: (1) Tipos de membresía como grilla de tarjetas con botones editar/eliminar. (2) Tabla de membresías registradas mostrando cliente, plan, fechas, estado (badge) y precio. Formulario inline para crear nueva membresía (seleccionar cliente, plan, fecha inicio, precio). Abre MembershipTypeModal para crear/editar planes. |
-| `/checkin/` | `app/checkin/page.tsx` | **Check-in** - Búsqueda por código de cliente. Muestra tarjeta con info del cliente y estado de membresía (verde=activa, rojo=vencida). Botón para registrar asistencia. Historial de check-ins agrupado por mes. Notificaciones toast para éxito/aviso/error. Maneja duplicados con mensaje de aviso. |
+| `/checkin/` | `app/checkin/page.tsx` | **Check-in** - Búsqueda por DNI del cliente. Muestra tarjeta con info del cliente y estado de membresía (verde=activa, rojo=vencida). Botón para registrar asistencia. Historial de check-ins agrupado por mes. Notificaciones toast para éxito/aviso/error. Maneja duplicados con mensaje de aviso. |
 | `/reports/` | `app/reports/page.tsx` | **Reportes** - Cuatro tarjetas de descarga: Clientes, Membresías, Check-ins, Pagos. Cada una descarga un archivo CSV directamente desde el backend. |
 | `/settings/` | `app/settings/page.tsx` | **Configuración** - Dos secciones: (1) Configuración general: días de inactividad umbral, días de aviso de membresía por vencer. (2) Cambio de contraseña (nota: simulado, no llama a un endpoint real). |
 
@@ -100,8 +100,8 @@ El frontend se exporta como sitio estático (`output: 'export'`) y se comunica c
 
 ### Elementos Interactivos
 
-- **Barra de búsqueda** en Clientes (filtra por nombre, código, DNI)
-- **Barra de búsqueda** en Check-in (busca por código de cliente)
+- **Barra de búsqueda** en Clientes (filtra por nombre o DNI)
+- **Barra de búsqueda** en Check-in (busca por DNI de cliente)
 - **Navegación por tabs** en Dashboard de estado de membresías (Por vencer/Vencidas/Activas/Sin membresía)
 - **Historial expandible** (mostrar más/menos) en Check-in y ClientDetailModal
 - **Toggle de tema** en sidebar (iconos sol/luna)
@@ -124,7 +124,7 @@ El frontend se exporta como sitio estático (`output: 'export'`) y se comunica c
 | `DELETE` | `/api/membership-types/:id` | `memberships/page.tsx` | Eliminar tipo de membresía |
 | `GET` | `/api/memberships` | `memberships/page.tsx` | Listar todas las membresías |
 | `POST` | `/api/memberships` | `memberships/page.tsx`, `MembershipModal.tsx` | Crear membresía |
-| `GET` | `/api/checkins/:code` | `checkin/page.tsx` | Buscar cliente por código para check-in |
+| `GET` | `/api/checkins/:dni` | `checkin/page.tsx` | Buscar cliente por DNI para check-in |
 | `POST` | `/api/checkins` | `checkin/page.tsx` | Registrar asistencia/check-in |
 | `GET` | `/api/checkins?client_id=XX` | `checkin/page.tsx`, `ClientDetailModal.tsx` | Obtener historial de check-ins |
 | `GET` | `/api/settings` | `settings/page.tsx`, `page.tsx`, `clients/page.tsx` | Obtener configuración del sistema |
@@ -150,11 +150,10 @@ Todos los endpoints están montados bajo `/api` definido en `main.go`.
 | Método | Endpoint | Handler | Descripción |
 |--------|----------|---------|-------------|
 | `GET` | `/api/clients` | `listClients` | Lista todos los clientes ordenados por fecha de creación descendente |
-| `POST` | `/api/clients` | `createClient` | Crea nuevo cliente; auto-genera código único (`GYM-001`, `GYM-002`, ...); valida que `name` no esté vacío |
+| `POST` | `/api/clients` | `createClient` | Crea nuevo cliente; valida `name` no vacío y `dni` (8 dígitos, único; 409 si ya existe) |
 | `GET` | `/api/clients/:id` | `getClient` | Obtiene un cliente por ID |
 | `PUT` | `/api/clients/:id` | `updateClient` | Actualiza campos del cliente (name, dni, phone, email, birth_date, address, status) |
 | `DELETE` | `/api/clients/:id` | `deleteClient` | Elimina un cliente por ID (hard delete) |
-| `GET` | `/api/clients/code/:code` | `getClientByCode` | Busca cliente por su código (ej: `GYM-001`) |
 | `GET` | `/api/clients/:id/memberships` | `getClientMemberships` | Obtiene todas las membresías de un cliente con información del tipo de membresía incluida |
 
 #### Tipos de Membresía
@@ -180,7 +179,7 @@ Todos los endpoints están montados bajo `/api` definido en `main.go`.
 |--------|----------|---------|-------------|
 | `POST` | `/api/checkins` | `createCheckin` | Registra check-in; **previene duplicados en el mismo día** (409 Conflict); actualiza `clients.last_checkin` |
 | `GET` | `/api/checkins` | `listCheckins` | Lista check-ins; filtro opcional `?client_id=`; incluye datos del cliente; limitado a 100 resultados, ordenados por fecha descendente |
-| `GET` | `/api/checkins/:code` | `getCheckinInfo` | Busca cliente por código y retorna info del cliente + membresía activa |
+| `GET` | `/api/checkins/:dni` | `getCheckinInfo` | Busca cliente por DNI y retorna info del cliente + membresía activa |
 
 #### Pagos
 
@@ -242,7 +241,7 @@ Todos los endpoints están montados bajo `/api` definido en `main.go`.
 | Tabla | Columnas | Notas |
 |-------|----------|-------|
 | `users` | `id` (PK), `username` (UNIQUE), `password_hash`, `created_at` | Seed con admin default (`admin` / bcrypt hash de `admin123`) |
-| `clients` | `id` (PK), `code` (UNIQUE), `name`, `dni`, `phone`, `email`, `birth_date`, `address`, `status` (default `'active'`), `last_checkin`, `created_at`, `updated_at` | Código auto-generado formato `GYM-XXX` |
+| `clients` | `id` (PK), `dni` (UNIQUE), `name`, `phone`, `email`, `birth_date`, `address`, `status` (default `'active'`), `last_checkin`, `created_at`, `updated_at` | DNI obligatorio y único: es el código de verificación en recepción |
 | `membership_types` | `id` (PK), `name`, `duration_days`, `price`, `description`, `created_at` | Seed con 4 planes: Mensual(30d/$50), Trimestral(90d/$135), Semestral(180d/$255), Anual(365d/$480) |
 | `memberships` | `id` (PK), `client_id` (FK->clients), `type_id` (FK->membership_types), `start_date`, `end_date`, `status` (default `'active'`), `price`, `created_at` | |
 | `payments` | `id` (PK), `membership_id` (FK->memberships), `amount`, `payment_method`, `payment_date`, `note`, `created_at` | |
@@ -269,10 +268,11 @@ La base de datos se almacena en `~/.gym-control/gym.db` (configurable vía `GYM_
 
 ### Lógica de Negocio
 
-#### Generación de Código de Cliente
-- Archivo: `backend/api/clients.go`, función `generateClientCode()`
-- Formato: `GYM-001` hasta `GYM-999`
-- Auto-incrementa basándose en el sufijo numérico más alto existente
+#### Validación de DNI del Cliente
+- Archivo: `app/lib/dni.ts` (helper) y `app/api/clients/route.ts` / `app/api/clients/[id]/route.ts`
+- El DNI es obligatorio, único y es el código de verificación en recepción
+- Formato: exactamente 8 dígitos (normaliza espacios y guiones, conserva ceros a la izquierda)
+- Retorna HTTP 409 Conflict si el DNI ya está registrado a nombre de otro cliente
 
 #### Prevención de Check-ins Duplicados
 - Archivo: `backend/api/checkins.go`, función `createCheckin()`

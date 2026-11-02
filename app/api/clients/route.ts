@@ -1,25 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../lib/prisma";
-
-async function generateClientCode(): Promise<string> {
-  const clients = await prisma.client.findMany({
-    select: { code: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (clients.length === 0) {
-    return "APG0001";
-  }
-
-  const maxCode = clients
-    .map((c) => {
-      const match = c.code.match(/^APG(\d+)$/);
-      return match ? parseInt(match[1], 10) : 0;
-    })
-    .reduce((max, num) => Math.max(max, num), 0);
-
-  return `APG${String(maxCode + 1).padStart(4, "0")}`;
-}
+import { normalizeDni, validateDni } from "../../lib/dni";
 
 export async function GET() {
   try {
@@ -52,19 +33,27 @@ export async function POST(request: NextRequest) {
     const { name, dni, phone, email, birthDate, address } = body;
 
     if (!name || name.trim() === "") {
+      return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
+    }
+
+    const dniError = validateDni(dni);
+    if (dniError) {
+      return NextResponse.json({ error: dniError }, { status: 400 });
+    }
+    const dniClean = normalizeDni(dni);
+
+    const existing = await prisma.client.findUnique({ where: { dni: dniClean } });
+    if (existing) {
       return NextResponse.json(
-        { error: "Name is required" },
-        { status: 400 }
+        { error: `El DNI ${dniClean} ya está registrado a nombre de ${existing.name}` },
+        { status: 409 }
       );
     }
 
-    const code = await generateClientCode();
-
     const client = await prisma.client.create({
       data: {
-        code,
         name: name.trim(),
-        dni: dni || null,
+        dni: dniClean,
         phone: phone || null,
         email: email || null,
         birthDate: birthDate ? new Date(birthDate) : null,
@@ -75,9 +64,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(client, { status: 201 });
   } catch (error) {
     console.error("Error creating client:", error);
-    return NextResponse.json(
-      { error: "Error creating client" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error creating client" }, { status: 500 });
   }
 }

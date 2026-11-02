@@ -1,5 +1,5 @@
 {
-  "name": "apolos-gym-control",
+  "name": "forja-gym-control",
   "version": "0.1.0",
   "private": true,
   "main": "electron/main.js",
@@ -20,8 +20,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "build": {
-    "appId": "com.apolos.gym-control",
-    "productName": "Apolos Gym",
+    "appId": "com.forja.gym-control",
+    "productName": "Forja Gym",
     "directories": {
       "output": "dist-electron"
     },
@@ -32,7 +32,9 @@
       {
         "from": ".next/standalone",
         "to": "app",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": ".next/standalone/node_modules",
@@ -60,7 +62,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -70,7 +74,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Apolos Gym"
+      "shortcutName": "Forja Gym"
     }
   },
   "dependencies": {

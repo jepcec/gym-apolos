@@ -99,12 +99,11 @@ async function main() {
   types.forEach((t) => { typeMap[t.name] = { id: t.id, durationDays: t.durationDays, price: t.price }; });
 
   const today = new Date();
-  const createdClients: { id: number; code: string }[] = [];
+  const createdClients: { id: number; dni: string }[] = [];
 
   for (let i = 0; i < clients.length; i++) {
     const client = await prisma.client.create({
       data: {
-        code: `APG${String(i + 1).padStart(4, "0")}`,
         name: clients[i].name,
         dni: clients[i].dni,
         phone: clients[i].phone,
@@ -112,25 +111,27 @@ async function main() {
         status: "active",
       },
     });
-    createdClients.push({ id: client.id, code: client.code });
+    createdClients.push({ id: client.id, dni: client.dni });
   }
 
   console.log(`Seeded ${createdClients.length} clients`);
 
-  // Membresías para los primeros 30 clientes (APG0001 - APG0030)
-  // - 10 Mensual activas (APG0001 - APG0010)
-  // - 10 Trimestral activas (APG0011 - APG0020)
-  // - 5 Semestral activas (APG0021 - APG0025)
-  // - 5 Mensual vencidas (APG0026 - APG0030)
-  // Los últimos 9 clientes (APG0031 - APG0039) NO tienen membresía
+  // Membresías para los primeros 30 clientes (índices 0-29)
+  // - 10 Mensual (índices 0-9)
+  // - 10 Trimestral (índices 10-19)
+  // - 5 Semestral (índices 20-24)
+  // - 5 Mensual vencidas (índices 25-29)
+  // Los últimos 9 clientes (índices 30-38) NO tienen membresía
 
   const memberships: { id: number; clientId: number }[] = [];
 
-  // APG0001 - APG0010: Mensual activa (30 días, empezó hace 15 días)
+  // Índices 0-9: Mensual (30 días)
+  //  - los 5 primeros: empezó hace 15 días → Activa (15 días restantes)
+  //  - los siguientes 5: empezó hace 24-27 días → Por vencer (3-6 días restantes)
   for (let i = 0; i < 10; i++) {
     const client = createdClients[i];
     const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 15);
+    startDate.setDate(startDate.getDate() - (i < 5 ? 15 : 24 + (i - 5)));
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 30);
     const type = typeMap["Mensual"];
@@ -148,7 +149,7 @@ async function main() {
     memberships.push({ id: membership.id, clientId: client.id });
   }
 
-  // APG0011 - APG0020: Trimestral activa (90 días, empezó hace 60 días)
+  // Índices 10-19: Trimestral activa (90 días, empezó hace 60 días)
   for (let i = 10; i < 20; i++) {
     const client = createdClients[i];
     const startDate = new Date(today);
@@ -170,7 +171,7 @@ async function main() {
     memberships.push({ id: membership.id, clientId: client.id });
   }
 
-  // APG0021 - APG0025: Semestral activa (180 días, empezó hace 90 días)
+  // Índices 20-24: Semestral activa (180 días, empezó hace 90 días)
   for (let i = 20; i < 25; i++) {
     const client = createdClients[i];
     const startDate = new Date(today);
@@ -192,7 +193,7 @@ async function main() {
     memberships.push({ id: membership.id, clientId: client.id });
   }
 
-  // APG0026 - APG0030: Mensual vencida (30 días, empezó hace 60 días, ya venció)
+  // Índices 25-29: Mensual vencida (30 días, empezó hace 60 días, ya venció)
   for (let i = 25; i < 30; i++) {
     const client = createdClients[i];
     const startDate = new Date(today);
@@ -214,7 +215,7 @@ async function main() {
     memberships.push({ id: membership.id, clientId: client.id });
   }
 
-  // APG0031 - APG0039: SIN membresía (9 clientes)
+  // Índices 30-38: SIN membresía (9 clientes)
 
   console.log(`Seeded ${memberships.length} memberships`);
 

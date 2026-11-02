@@ -11,9 +11,8 @@ function escapeCSV(value: string | number | null | undefined): string {
 }
 
 interface ClientCSV {
-  code: string;
   name: string;
-  dni: string | null;
+  dni: string;
   phone: string | null;
   email: string | null;
   birthDate: string | Date | null;
@@ -24,7 +23,7 @@ interface ClientCSV {
 }
 
 interface MembershipCSV {
-  client: { code: string; name: string };
+  client: { dni: string; name: string };
   type: { name: string } | null;
   startDate: string | Date;
   endDate: string | Date;
@@ -33,7 +32,7 @@ interface MembershipCSV {
 }
 
 interface CheckinCSV {
-  client: { code: string; name: string };
+  client: { dni: string; name: string };
   checkinDate: string | Date;
 }
 
@@ -49,11 +48,10 @@ interface PaymentCSV {
 }
 
 function clientsToCSV(clients: ClientCSV[]): string {
-  const headers = ["Code", "Name", "DNI", "Phone", "Email", "Birth Date", "Address", "Status", "Last Check-in", "Created At"];
+  const headers = ["DNI", "Nombre", "Teléfono", "Email", "Fecha de nacimiento", "Dirección", "Estado", "Último ingreso", "Fecha de alta"];
   const rows = clients.map((c) => [
-    escapeCSV(c.code),
-    escapeCSV(c.name),
     escapeCSV(c.dni),
+    escapeCSV(c.name),
     escapeCSV(c.phone),
     escapeCSV(c.email),
     escapeCSV(c.birthDate ? new Date(c.birthDate).toISOString().split("T")[0] : ""),
@@ -67,9 +65,9 @@ function clientsToCSV(clients: ClientCSV[]): string {
 }
 
 function membershipsToCSV(memberships: MembershipCSV[]): string {
-  const headers = ["Client Code", "Client Name", "Plan", "Start Date", "End Date", "Status", "Price"];
+  const headers = ["DNI del cliente", "Cliente", "Plan", "Inicio", "Fin", "Estado", "Precio"];
   const rows = memberships.map((m) => [
-    escapeCSV(m.client.code),
+    escapeCSV(m.client.dni),
     escapeCSV(m.client.name),
     escapeCSV(m.type?.name || "Custom"),
     escapeCSV(new Date(m.startDate).toISOString().split("T")[0]),
@@ -82,7 +80,7 @@ function membershipsToCSV(memberships: MembershipCSV[]): string {
 }
 
 function checkinsToCSV(checkins: CheckinCSV[], month?: string): string {
-  const headers = ["Client Code", "Client Name", "Date"];
+  const headers = ["DNI del cliente", "Cliente", "Fecha"];
   let filtered = checkins;
 
   if (month) {
@@ -94,7 +92,7 @@ function checkinsToCSV(checkins: CheckinCSV[], month?: string): string {
   }
 
   const rows = filtered.map((c) => [
-    escapeCSV(c.client.code),
+    escapeCSV(c.client.dni),
     escapeCSV(c.client.name),
     escapeCSV(new Date(c.checkinDate).toISOString().split("T")[0]),
   ]);
@@ -103,7 +101,7 @@ function checkinsToCSV(checkins: CheckinCSV[], month?: string): string {
 }
 
 function paymentsToCSV(payments: PaymentCSV[], month?: string): string {
-  const headers = ["Client", "Plan", "Amount", "Method", "Date", "Note"];
+  const headers = ["Cliente", "Plan", "Monto", "Método", "Fecha", "Nota"];
   let filtered = payments;
 
   if (month) {

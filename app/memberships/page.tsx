@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import SidebarLayout from "../components/SidebarLayout";
 import MembershipTypeModal from "../components/MembershipTypeModal";
+import ConfirmDialog from "../components/ConfirmDialog";
+import ToastStack, { useToasts } from "../components/Toast";
 import { apiFetch } from "../lib/api";
 import { getMembershipStatus } from "../lib/membershipStatus";
 
@@ -17,7 +19,7 @@ interface MembershipType {
 
 interface Client {
   id: number;
-  code: string;
+  dni: string;
   name: string;
 }
 
@@ -38,7 +40,10 @@ export default function MembershipsPage() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
+  const [pendingDeleteType, setPendingDeleteType] =
+    useState<MembershipType | null>(null);
   const [warningDays, setWarningDays] = useState(7);
+  const { toasts, push, dismiss } = useToasts();
 
   useEffect(() => {
     loadData();
@@ -56,6 +61,7 @@ export default function MembershipsPage() {
       setWarningDays(parseInt(settingsRes.warning_days || "7", 10));
     } catch (error) {
       console.error("Error loading data:", error);
+      push("error", "No se pudo cargar la información. Recarga la página.");
     }
   }
 
@@ -66,135 +72,137 @@ export default function MembershipsPage() {
           method: "PUT",
           body: JSON.stringify(data),
         });
+        push("success", "Plan actualizado");
       } else {
         await apiFetch("/membership-types", {
           method: "POST",
           body: JSON.stringify(data),
         });
+        push("success", "Plan creado");
       }
       setShowTypeModal(false);
       setEditingTypeId(null);
       loadData();
     } catch (error) {
       console.error("Error saving membership type:", error);
-      alert("Error al guardar tipo de membresía");
+      push("error", "No se pudo guardar el plan. Intenta de nuevo.");
     }
   }
 
-  async function handleDeleteType(id: number) {
-    if (!confirm("¿Estás seguro de eliminar este tipo de membresía?")) return;
+  async function confirmDeleteType() {
+    if (!pendingDeleteType) return;
     try {
-      await apiFetch(`/membership-types/${id}`, { method: "DELETE" });
+      await apiFetch(`/membership-types/${pendingDeleteType.id}`, {
+        method: "DELETE",
+      });
+      push("success", `El plan ${pendingDeleteType.name} fue eliminado`);
+      setPendingDeleteType(null);
       loadData();
-    } catch (error) {
-      console.error("Error deleting membership type:", error);
-      alert("Error al eliminar tipo de membresía");
+    } catch {
+      push(
+        "error",
+        "No se pudo eliminar el plan. Puede que aún tenga membresías asociadas."
+      );
     }
   }
 
   return (
     <SidebarLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
-            Membresías
-          </h1>
-        </div>
+      <div className="space-y-5">
+        <h1 className="page-title">Membresías</h1>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-          <div className="border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-                Tipos de Membresía
-              </h2>
-              <button
-                onClick={() => {
-                  setEditingTypeId(null);
-                  setShowTypeModal(true);
-                }}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo Plan
-              </button>
-            </div>
+        <div className="card">
+          <div className="flex items-center justify-between border-b border-[var(--line-soft)] px-6 py-4">
+            <h2 className="text-base font-semibold text-ink">
+              Planes disponibles
+            </h2>
+            <button
+              onClick={() => {
+                setEditingTypeId(null);
+                setShowTypeModal(true);
+              }}
+              className="btn btn-primary !py-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo plan
+            </button>
           </div>
 
           <div className="p-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {membershipTypes.map((type) => (
                 <div
                   key={type.id}
-                  className="group relative rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 hover:border-blue-300 dark:hover:border-blue-600"
+                  className="group relative rounded-lg border border-[var(--line)] p-4 transition-colors hover:border-[var(--muted)]"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-medium text-zinc-900 dark:text-white">
-                        {type.name}
-                      </h3>
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        {type.durationDays} días
-                      </p>
-                    </div>
-                    <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                  <div className="mb-1 flex items-baseline justify-between gap-2">
+                    <h3 className="font-medium text-ink">{type.name}</h3>
+                    <span className="num text-xl" style={{ color: "var(--ember)" }}>
                       S/ {type.price}
                     </span>
                   </div>
+                  <p className="font-mono text-xs text-muted">
+                    {type.durationDays} días
+                  </p>
                   {type.description && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {type.description}
-                    </p>
+                    <p className="mt-2 text-sm text-muted">{type.description}</p>
                   )}
-                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                     <button
+                      aria-label={`Editar plan ${type.name}`}
                       onClick={() => {
                         setEditingTypeId(type.id);
                         setShowTypeModal(true);
                       }}
-                      className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                      className="btn btn-ghost rounded !p-1.5"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteType(type.id)}
-                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      aria-label={`Eliminar plan ${type.name}`}
+                      onClick={() => setPendingDeleteType(type)}
+                      className="btn btn-danger rounded !p-1.5"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               ))}
+              {membershipTypes.length === 0 && (
+                <p className="col-span-full py-6 text-center text-sm text-muted">
+                  No hay planes todavía.{" "}
+                  <button
+                    onClick={() => {
+                      setEditingTypeId(null);
+                      setShowTypeModal(true);
+                    }}
+                    className="font-medium text-ember underline underline-offset-2"
+                  >
+                    Crea el primero
+                  </button>
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-          <div className="border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-            <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-              Membresías Registradas
+        <div className="card">
+          <div className="border-b border-[var(--line-soft)] px-6 py-4">
+            <h2 className="text-base font-semibold text-ink">
+              Membresías registradas
             </h2>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-700 text-left">
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Plan
-                  </th>
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Inicio
-                  </th>
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Fin
-                  </th>
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
+                <tr className="border-b border-[var(--line)] text-left">
+                  <th className="px-6 py-3 font-medium text-muted">Cliente</th>
+                  <th className="px-6 py-3 font-medium text-muted">Plan</th>
+                  <th className="px-6 py-3 font-medium text-muted">Inicio</th>
+                  <th className="px-6 py-3 font-medium text-muted">Fin</th>
+                  <th className="px-6 py-3 font-medium text-muted">Estado</th>
+                  <th className="px-6 py-3 text-right font-medium text-muted">
                     Precio
                   </th>
                 </tr>
@@ -203,29 +211,40 @@ export default function MembershipsPage() {
                 {memberships.map((membership) => (
                   <tr
                     key={membership.id}
-                    className="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50 dark:hover:bg-zinc-700/20"
+                    className="border-b border-[var(--line-soft)] hover:bg-[var(--line-soft)]/60"
                   >
-                    <td className="px-6 py-3 text-zinc-900 dark:text-white">
-                      {membership.client.code} - {membership.client.name}
+                    <td className="px-6 py-2.5 text-ink">
+                      <span className="code-chip mr-2">
+                        {membership.client.dni}
+                      </span>
+                      {membership.client.name}
                     </td>
-                    <td className="px-6 py-3 text-zinc-900 dark:text-white">
-                      {membership.type?.name || "Custom"}
+                    <td className="px-6 py-2.5 text-ink">
+                      {membership.type?.name || "Personalizado"}
                     </td>
-                    <td className="px-6 py-3 text-zinc-500 dark:text-zinc-400">
-                      {new Date(membership.startDate).toLocaleDateString()}
+                    <td className="px-6 py-2.5 font-mono text-xs text-muted">
+                      {new Date(membership.startDate).toLocaleDateString("es-PE")}
                     </td>
-                    <td className="px-6 py-3 text-zinc-500 dark:text-zinc-400">
-                      {new Date(membership.endDate).toLocaleDateString()}
+                    <td className="px-6 py-2.5 font-mono text-xs text-muted">
+                      {new Date(membership.endDate).toLocaleDateString("es-PE")}
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-2.5">
                       <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getMembershipStatus(membership.endDate, warningDays).className}`}
+                        className={
+                          getMembershipStatus(
+                            membership.endDate,
+                            warningDays
+                          ).className
+                        }
                       >
-                        {getMembershipStatus(membership.endDate, warningDays).label}
+                        {
+                          getMembershipStatus(membership.endDate, warningDays)
+                            .label
+                        }
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-zinc-900 dark:text-white">
-                      S/ {membership.price.toFixed(2)}
+                    <td className="px-6 py-2.5 text-right font-mono text-ink">
+                      {membership.price.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -233,9 +252,10 @@ export default function MembershipsPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-6 py-8 text-center text-zinc-500 dark:text-zinc-400"
+                      className="px-6 py-10 text-center text-muted"
                     >
-                      No hay membresías registradas
+                      Nadie tiene membresía aún. Asígnale una a tu primer
+                      cliente desde la pantalla de Clientes.
                     </td>
                   </tr>
                 )}
@@ -255,6 +275,18 @@ export default function MembershipsPage() {
           onSave={handleSaveType}
         />
       )}
+
+      {pendingDeleteType && (
+        <ConfirmDialog
+          title="Eliminar plan"
+          confirmLabel="Eliminar plan"
+          message={`Se eliminará el plan “${pendingDeleteType.name}” (${pendingDeleteType.durationDays} días). Esta acción no se puede deshacer.`}
+          onConfirm={confirmDeleteType}
+          onCancel={() => setPendingDeleteType(null)}
+        />
+      )}
+
+      <ToastStack toasts={toasts} dismiss={dismiss} />
     </SidebarLayout>
   );
 }

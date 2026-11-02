@@ -120,38 +120,42 @@ export default function MembershipModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-md rounded-xl bg-white dark:bg-zinc-800 shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            {mode === "assign"
-              ? "Asignar Membresía"
-              : "Renovar Membresía"}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="card w-full max-w-md">
+        <div className="flex items-center justify-between border-b border-[var(--line-soft)] px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">
+            {mode === "assign" ? "Asignar membresía" : "Renovar membresía"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+            aria-label="Cerrar"
+            className="btn btn-ghost rounded !p-2"
           >
-            <X className="h-5 w-5 text-zinc-500" />
+            <X className="h-5 w-5 text-muted" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Cliente
             </label>
             <input
               type="text"
               value={clientName || ""}
               disabled
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 px-3 py-2 text-zinc-500 dark:text-zinc-400"
+              className="input bg-[var(--line-soft)] text-muted"
             />
           </div>
 
           {!useCustomDuration ? (
             <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              <label className="mb-1 block text-sm font-medium text-ink">
                 Plan *
               </label>
               <select
@@ -161,18 +165,18 @@ export default function MembershipModal({
                     e.target.value ? parseInt(e.target.value) : ""
                   )
                 }
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
               >
                 {membershipTypes.map((type) => (
                   <option key={type.id} value={type.id}>
-                    {type.name} - {type.durationDays} días - S/ {type.price}
+                    {type.name} — {type.durationDays} días — S/ {type.price}
                   </option>
                 ))}
               </select>
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              <label className="mb-1 block text-sm font-medium text-ink">
                 Duración personalizada (días) *
               </label>
               <input
@@ -181,7 +185,7 @@ export default function MembershipModal({
                 onChange={(e) => setCustomDurationInput(e.target.value)}
                 required
                 min="1"
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
               />
             </div>
           )}
@@ -192,18 +196,15 @@ export default function MembershipModal({
               id="useCustomDuration"
               checked={useCustomDuration}
               onChange={(e) => setUseCustomDuration(e.target.checked)}
-              className="rounded border-zinc-300 dark:border-zinc-600"
+              className="h-4 w-4 rounded accent-[var(--ember)]"
             />
-            <label
-              htmlFor="useCustomDuration"
-              className="text-sm text-zinc-700 dark:text-zinc-300"
-            >
+            <label htmlFor="useCustomDuration" className="text-sm text-ink">
               Usar duración personalizada
             </label>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Fecha de inicio *
             </label>
             <div className="relative">
@@ -212,14 +213,17 @@ export default function MembershipModal({
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
               />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              <Calendar
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Precio (S/) *
             </label>
             <input
@@ -229,22 +233,15 @@ export default function MembershipModal({
               required
               min="0"
               step="0.01"
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input font-mono"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            >
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn btn-outline">
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
+            <button type="submit" className="btn btn-primary">
               <Save className="h-4 w-4" />
               {mode === "assign" ? "Asignar" : "Renovar"}
             </button>

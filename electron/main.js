@@ -9,6 +9,14 @@ let mainWindow;
 let nextServer;
 const PORT = 3456;
 
+// Marca de la app (mantener sincronizado con app/lib/branding.ts)
+const BRAND = {
+  name: "FORJA",
+  tagline: "Gym & Entrenamiento",
+  description: "Sistema de gestión para gimnasios",
+  ember: "#ef7a45",
+};
+
 function getDatabasePath() {
   const userDataPath = app.getPath("userData");
   const dbDir = path.join(userDataPath, "database");
@@ -146,30 +154,27 @@ function getSplashHTML() {
           to { opacity: 1; transform: translateY(0); }
         }
         .logo {
-          font-size: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          font-size: 52px;
           font-weight: 700;
-          color: #fff;
+          color: #f2f1ee;
           margin-bottom: 8px;
-          letter-spacing: -1px;
+          letter-spacing: 0.06em;
         }
-        .logo::after {
-          content: '';
-          display: block;
-          width: 60px;
-          height: 2px;
-          background: linear-gradient(90deg, transparent, #8b0000, transparent);
-          margin: 12px auto 0;
-        }
-        .logo span {
-          background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+        .knurl {
+          width: 30px;
+          height: 9px;
+          background: repeating-linear-gradient(90deg, ${BRAND.ember} 0 3px, transparent 3px 8px);
+          border-radius: 2px;
         }
         .subtitle {
-          color: #666;
+          color: #83858b;
           font-size: 14px;
           margin-bottom: 32px;
+          letter-spacing: 0.04em;
         }
         .loader {
           display: inline-block;
@@ -177,7 +182,7 @@ function getSplashHTML() {
           height: 40px;
           border: 3px solid rgba(255,255,255,.1);
           border-radius: 50%;
-          border-top-color: #8b0000;
+          border-top-color: ${BRAND.ember};
           animation: spin 1s ease-in-out infinite;
         }
         @keyframes spin {
@@ -192,8 +197,8 @@ function getSplashHTML() {
     </head>
     <body>
       <div class="container">
-        <div class="logo">Apolos <span>Gym</span></div>
-        <div class="subtitle">Sistema de gestión para gimnasios</div>
+        <div class="logo">${BRAND.name} <span class="knurl" aria-hidden="true"></span></div>
+        <div class="subtitle">${BRAND.tagline}</div>
         <div class="loader"></div>
         <div class="status">Iniciando aplicación...</div>
       </div>
@@ -210,7 +215,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: "Apolos Gym",
+    title: BRAND.name,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,

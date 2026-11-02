@@ -56,23 +56,29 @@ export default function MembershipTypeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-md rounded-xl bg-white dark:bg-zinc-800 shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 px-6 py-4">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            {typeId ? "Editar Plan" : "Nuevo Plan de Membresía"}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="card w-full max-w-md">
+        <div className="flex items-center justify-between border-b border-[var(--line-soft)] px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">
+            {typeId ? "Editar plan" : "Nuevo plan de membresía"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+            aria-label="Cerrar"
+            className="btn btn-ghost rounded !p-2"
           >
-            <X className="h-5 w-5 text-zinc-500" />
+            <X className="h-5 w-5 text-muted" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Nombre *
             </label>
             <input
@@ -80,13 +86,13 @@ export default function MembershipTypeModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="Ej: Mensual, Trimestral"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Duración (días) *
             </label>
             <input
@@ -95,12 +101,12 @@ export default function MembershipTypeModal({
               onChange={(e) => setDurationDays(parseInt(e.target.value) || 0)}
               required
               min="1"
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Precio (S/) *
             </label>
             <input
@@ -110,19 +116,19 @@ export default function MembershipTypeModal({
               required
               min="0"
               step="0.01"
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-ink">
               Descripción
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="Descripción opcional del plan..."
             />
           </div>
@@ -131,13 +137,13 @@ export default function MembershipTypeModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              className="btn btn-outline"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="btn btn-primary"
             >
               <Save className="h-4 w-4" />
               {typeId ? "Actualizar" : "Crear"}
