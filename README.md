@@ -144,7 +144,7 @@ npm run dev
 ## 📦 Compilar para Windows
 
 ```bash
-npm run build
+npm run electron:build
 ```
 
 El proceso realiza:
@@ -154,6 +154,25 @@ El proceso realiza:
 3. Preparación de Electron
 4. Empaquetado con Electron Builder
 5. Generación del instalador `.exe`
+
+El instalador no requiere Node.js ni un `node.exe` adicional. Electron utiliza
+su propio runtime de Node para ejecutar el servidor standalone de Next.js.
+
+El instalador generado queda en `dist-electron/`.
+
+### Generación automática con GitHub Actions
+
+El workflow `.github/workflows/build-electron.yml` genera el instalador para
+Windows cuando se ejecuta manualmente desde Actions o cuando se publica un tag
+con formato `v*`, por ejemplo:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+En ambos casos el `.exe` queda disponible como artefacto. Al publicar un tag,
+además se crea una GitHub Release automáticamente.
 
 ---
 

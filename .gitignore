@@ -59,6 +59,3 @@ dev-error.log
 
 # electron build output
 /dist-electron/
-
-# embedded node binaries
-/resources/

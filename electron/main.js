@@ -97,13 +97,16 @@ function startNextServer() {
       return;
     }
 
-    const nodeBin = app.isPackaged
-      ? path.join(process.resourcesPath, "node", "node.exe")
-      : "node";
+    // Electron ya incluye su propio runtime de Node. Usarlo evita distribuir
+    // un node.exe adicional dentro del instalador.
+    const nodeBin = process.execPath;
 
     nextServer = spawn(nodeBin, [serverPath], {
       cwd,
-      env,
+      env: {
+        ...env,
+        ELECTRON_RUN_AS_NODE: "1",
+      },
       stdio: ["pipe", "pipe", "pipe"],
     });
 

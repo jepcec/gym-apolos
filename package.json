@@ -5,6 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run db:generate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -12,7 +13,7 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
-    "electron:dev": "concurrently \"npm run build\" \"wait-on http://127.0.0.1:3000 && electron .\"",
+    "electron:dev": "npm run build && electron .",
     "electron:build": "npm run build && node scripts/prepare-electron.js && electron-builder build --win",
     "electron:preview": "electron ."
   },
@@ -51,10 +52,6 @@
       {
         "from": "dev-clean.db",
         "to": "database/dev.db"
-      },
-      {
-        "from": "resources/node",
-        "to": "node"
       }
     ],
     "win": {
