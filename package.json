@@ -17,7 +17,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
     "electron:dev": "npm run build && electron .",
-    "electron:build": "npm run build && node scripts/prepare-electron.js && electron-builder build --win",
+    "electron:build": "npm run build && node scripts/prepare-electron.js && electron-builder build --win --publish never",
     "electron:preview": "electron ."
   },
   "prisma": {
